@@ -95,3 +95,92 @@ func (h *GuestHandler) HandleObterGrupoPorChaveDeAcesso(w http.ResponseWriter, r
 	// 4. Responder com sucesso.
 	Respond(w, r, respDTO, http.StatusOK)
 }
+
+func (h *GuestHandler) HandleConfirmarPresenca(w http.ResponseWriter, r *http.Request) {
+	// 1. Decodificar o corpo da requisição.
+	var reqDTO ConfirmarPresencaRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&reqDTO); err != nil {
+		RespondError(w, r, "CORPO_INVALIDO", "O corpo da requisição está malformado.", http.StatusBadRequest)
+		return
+	}
+
+	// 2. Converter o DTO da camada de interface para o tipo do domínio.
+	respostasDominio := make([]domain.RespostaRSVP, len(reqDTO.Respostas))
+	for i, rsvpDTO := range reqDTO.Respostas {
+		convidadoID, err := uuid.Parse(rsvpDTO.IDConvidado)
+		if err != nil {
+			RespondError(w, r, "DADOS_INVALIDOS", "ID de convidado inválido: "+rsvpDTO.IDConvidado, http.StatusBadRequest)
+			return
+		}
+		respostasDominio[i] = domain.RespostaRSVP{
+			ConvidadoID: convidadoID,
+			Status:      rsvpDTO.Status,
+		}
+	}
+
+	// 3. Chamar o serviço de aplicação.
+	err := h.service.ConfirmarPresencaGrupo(r.Context(), reqDTO.ChaveDeAcesso, respostasDominio)
+	if err != nil {
+		if errors.Is(err, domain.ErrGrupoNaoEncontrado) {
+			RespondError(w, r, "NAO_ENCONTRADO", "Chave de acesso não encontrada.", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrStatusRSVPInvalido) || errors.Is(err, domain.ErrConvidadoNaoEncontradoNoGrupo) {
+			RespondError(w, r, "DADOS_INVALIDOS", err.Error(), http.StatusBadRequest)
+			return
+		}
+		log.Printf("ERRO: %v\n", err)
+		RespondError(w, r, "ERRO_INTERNO", "Falha ao processar sua requisição.", http.StatusInternalServerError)
+		return
+	}
+
+	// 4. Responder com sucesso.
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *GuestHandler) HandleRevisarGrupo(w http.ResponseWriter, r *http.Request) {
+	grupoID, err := uuid.Parse(chi.URLParam(r, "idGrupo"))
+	if err != nil {
+		RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do grupo é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	var reqDTO RevisarGrupoRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&reqDTO); err != nil {
+		RespondError(w, r, "CORPO_INVALIDO", "O corpo da requisição está malformado.", http.StatusBadRequest)
+		return
+	}
+
+	convidadosDominio := make([]domain.ConvidadoParaRevisao, len(reqDTO.Convidados))
+	for i, cDTO := range reqDTO.Convidados {
+		convidadoID := uuid.Nil
+		if cDTO.ID != nil && *cDTO.ID != "" {
+			parsedID, err := uuid.Parse(*cDTO.ID)
+			if err != nil {
+				RespondError(w, r, "DADOS_INVALIDOS", "ID de convidado inválido: "+*cDTO.ID, http.StatusBadRequest)
+				return
+			}
+			convidadoID = parsedID
+		}
+		convidadosDominio[i] = domain.ConvidadoParaRevisao{
+			ID:   convidadoID,
+			Nome: cDTO.Nome,
+		}
+	}
+
+	err = h.service.RevisarGrupo(r.Context(), grupoID, reqDTO.ChaveDeAcesso, convidadosDominio)
+	// ... (Lógica de tratamento de erro similar aos outros handlers) ...
+	// ...
+	// Exemplo:
+	if err != nil {
+		if errors.Is(err, domain.ErrGrupoNaoEncontrado) {
+			RespondError(w, r, "NAO_ENCONTRADO", "Grupo não encontrado.", http.StatusNotFound)
+			return
+		}
+		// ... outros erros de negócio
+		RespondError(w, r, "ERRO_INTERNO", "Falha ao processar sua requisição.", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

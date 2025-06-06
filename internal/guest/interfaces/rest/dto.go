@@ -24,3 +24,26 @@ type ConvidadoDTO struct {
 	Nome       string `json:"nome"`
 	StatusRSVP string `json:"statusRSVP"` // e.g., "PENDENTE"
 }
+
+// ConfirmarPresencaRequestDTO é o corpo da requisição para o novo endpoint.
+type ConfirmarPresencaRequestDTO struct {
+	ChaveDeAcesso string            `json:"chaveDeAcesso"`
+	Respostas     []RespostaRSVPDTO `json:"respostas"`
+}
+
+// RespostaRSVPDTO representa a resposta de um único convidado.
+type RespostaRSVPDTO struct {
+	IDConvidado string `json:"idConvidado"`
+	Status      string `json:"status"`
+}
+
+// RevisarGrupoRequestDTO é o corpo da requisição para editar um grupo.
+type RevisarGrupoRequestDTO struct {
+	ChaveDeAcesso string                `json:"chaveDeAcesso"`
+	Convidados    []ConvidadoRevisaoDTO `json:"convidados"`
+}
+
+type ConvidadoRevisaoDTO struct {
+	ID   *string `json:"id"` // Ponteiro para string para poder ser nulo
+	Nome string  `json:"nome"`
+}

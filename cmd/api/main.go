@@ -44,9 +44,13 @@ func main() {
 	r.Route("/v1", func(r chi.Router) {
 		// Rota para criar grupo (já existente)
 		r.Post("/casamentos/{idCasamento}/grupos-de-convidados", guestHandler.HandleCriarGrupoDeConvidados)
-
 		// Nova rota para acesso do convidado
 		r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
+		// Nova rota para submissão de RSVP em lote.
+		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
+		// Nova rota para editar grupo de convidados
+		r.Put("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRevisarGrupo)
+
 	})
 
 	log.Printf("Servidor iniciado na porta %s", port)

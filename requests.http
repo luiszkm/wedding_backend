@@ -40,3 +40,59 @@ GET {{host}}/v1/acesso-convidado?chave=familia-da-noiva
 GET {{host}}/v1/acesso-convidado?chave=chave-que-nao-existe
 
 ###
+
+###
+# @name SubmeterRSVPemLote
+#
+# ANTES de rodar:
+# 1. Use "CriarGrupoComSucesso" para criar um grupo com a chave "familia-da-noiva".
+# 2. Use "ObterGrupoPorChave" com essa chave para pegar os IDs dos convidados.
+# 3. Cole os IDs corretos no corpo da requisição abaixo.
+POST {{host}}/v1/rsvps
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "familia-da-noiva",
+  "respostas": [
+    { 
+      "idConvidado": "51eff69b-fcf7-4cac-b582-86acb996c9b2", 
+      "status": "CONFIRMADO" 
+    },
+    { 
+      "idConvidado": "098121dc-1c27-458a-9bc9-893581355ffb", 
+      "status": "RECUSADO" 
+    }
+  ]
+}
+
+###
+
+###
+# @name EditarGrupoDeConvidados
+#
+# ANTES de rodar:
+# 1. Crie um grupo e pegue seu ID.
+# 2. Busque os convidados desse grupo para pegar seus IDs.
+# 3. Monte o corpo abaixo para:
+#    - Renomear o primeiro convidado.
+#    - Manter o segundo convidado.
+#    - Adicionar um terceiro convidado novo.
+#    - Omitir um convidado antigo para removê-lo.
+PUT {{host}}/v1/grupos-de-convidados/674debb2-f24e-407a-970a-a9159d77ea21
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "familia-da-noiva",
+  "convidados": [
+    {
+      "id": "51eff69b-fcf7-4cac-b582-86acb996c9b2",
+      "nome": "Nome do Convidado 1 (Editado)"
+    },
+    {
+      "id": "098121dc-1c27-458a-9bc9-893581355ffb",
+      "nome": "Nome do Convidado 2 (Sem Alteração)"
+    }
+  ]
+}
+
+###

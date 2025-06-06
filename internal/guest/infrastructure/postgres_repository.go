@@ -120,3 +120,109 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, accessKey
 
 	return grupo, nil
 }
+
+func (r *PostgresGroupRepository) FindByID(ctx context.Context, groupID uuid.UUID) (*domain.GrupoDeConvidados, error) {
+	sql := `
+		SELECT 
+			g.id, g.id_casamento, g.chave_de_acesso,
+			c.id, c.nome, c.status_rsvp
+		FROM grupos_de_convidados g
+		LEFT JOIN convidados c ON g.id = c.id_grupo
+		WHERE g.id = $1;
+	`
+	rows, err := r.db.Query(ctx, sql, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao consultar grupo por id: %w", err)
+	}
+	// ESTA LINHA É A MAIS IMPORTANTE E A PROVÁVEL CAUSA DO ERRO.
+	// defer garante que rows.Close() seja chamado ao final da função,
+	// liberando a conexão de volta para o pool.
+	defer rows.Close()
+
+	var grupo *domain.GrupoDeConvidados
+	var convidados []*domain.Convidado
+
+	for rows.Next() {
+		var grupoID, idCasamento, convidadoID uuid.UUID
+		var chaveDeAcesso, nomeConvidado, statusRSVP string
+		var pConvidadoID *uuid.UUID
+		var pNomeConvidado, pStatusRSVP *string
+
+		if err := rows.Scan(
+			&grupoID, &idCasamento, &chaveDeAcesso,
+			&pConvidadoID, &pNomeConvidado, &pStatusRSVP,
+		); err != nil {
+			return nil, fmt.Errorf("falha ao escanear linha da consulta de grupo por id: %w", err)
+		}
+
+		if grupo == nil {
+			grupo = domain.HydrateGroup(grupoID, idCasamento, chaveDeAcesso, nil)
+		}
+
+		if pConvidadoID != nil {
+			convidadoID = *pConvidadoID
+			nomeConvidado = *pNomeConvidado
+			statusRSVP = *pStatusRSVP
+			convidado := domain.HydrateConvidado(convidadoID, nomeConvidado, statusRSVP)
+			convidados = append(convidados, convidado)
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("erro durante iteração das linhas: %w", err)
+	}
+
+	if grupo == nil {
+		return nil, domain.ErrGrupoNaoEncontrado
+	}
+
+	// "Hidratamos" o agregado com sua lista de convidados
+	grupo = domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidados)
+
+	return grupo, nil
+}
+
+func (r *PostgresGroupRepository) Update(ctx context.Context, group *domain.GrupoDeConvidados) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("falha ao iniciar transação para update: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Atualiza os dados do grupo principal (chave de acesso e timestamp)
+	_, err = tx.Exec(ctx,
+		"UPDATE grupos_de_convidados SET chave_de_acesso = $1, updated_at = $2 WHERE id = $3",
+		group.ChaveDeAcesso(), group.UpdatedAt(), group.ID())
+	if err != nil {
+		return fmt.Errorf("falha ao atualizar dados do grupo: %w", err)
+	}
+
+	// 2. Remove TODOS os convidados antigos associados a este grupo.
+	// Esta é a parte "delete" da estratégia "delete-then-insert".
+	_, err = tx.Exec(ctx, "DELETE FROM convidados WHERE id_grupo = $1", group.ID())
+	if err != nil {
+		return fmt.Errorf("falha ao deletar convidados antigos: %w", err)
+	}
+
+	// 3. Insere a NOVA lista de convidados em lote.
+	// Esta é a parte "insert" da estratégia.
+	if len(group.Convidados()) > 0 {
+		rows := make([][]any, len(group.Convidados()))
+		for i, c := range group.Convidados() {
+			rows[i] = []any{c.ID(), group.ID(), c.Nome(), c.StatusRSVP()}
+		}
+
+		_, err = tx.CopyFrom(
+			ctx,
+			pgx.Identifier{"convidados"},
+			[]string{"id", "id_grupo", "nome", "status_rsvp"},
+			pgx.CopyFromRows(rows),
+		)
+		if err != nil {
+			return fmt.Errorf("falha ao inserir nova lista de convidados: %w", err)
+		}
+	}
+
+	// 4. Confirma a transação.
+	return tx.Commit(ctx)
+}

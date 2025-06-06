@@ -1,0 +1,42 @@
+# Define variáveis para reutilização
+@host = http://localhost:3000
+@casamentoId = a1b2c3d4-e5f6-7890-1234-567890abcdef
+
+###
+# @name CriarGrupoComSucesso
+# Envia uma requisição válida para criar um grupo de convidados
+POST {{host}}/v1/casamentos/{{casamentoId}}/grupos-de-convidados
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "familia-da-noiva",
+  "nomesDosConvidados": ["Maria Eduarda", "Carlos Alberto", "Joana Lima"]
+}
+
+###
+# @name CriarGrupoComErroDeValidacao
+# Envia uma requisição sem a lista de convidados para forçar um erro de validação
+POST {{host}}/v1/casamentos/{{casamentoId}}/grupos-de-convidados
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "amigos-da-faculdade",
+  "nomesDosConvidados": []
+}
+
+###
+
+###
+# @name ObterGrupoPorChave
+# Busca um grupo de convidados usando uma chave de acesso válida.
+#
+# ANTES de rodar este teste, rode o "CriarGrupoComSucesso" para garantir
+# que o grupo com a chave "familia-da-noiva" exista.
+GET {{host}}/v1/acesso-convidado?chave=familia-da-noiva
+
+###
+# @name ObterGrupoComChaveInexistente
+# Tenta buscar um grupo com uma chave que não existe para testar o erro 404.
+GET {{host}}/v1/acesso-convidado?chave=chave-que-nao-existe
+
+###

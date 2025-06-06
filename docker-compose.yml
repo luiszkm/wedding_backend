@@ -1,0 +1,27 @@
+# file: docker-compose.yml
+
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: wedding_db
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: wedding_db
+    ports:
+      - "5432:5432"
+    volumes:
+      # Volume para persistir os dados do banco
+      - postgres_data:/var/lib/postgresql/data
+      
+      # --- LINHA NOVA E IMPORTANTE ---
+      # Mapeia a pasta local de scripts para o diretório de inicialização do Postgres.
+      # O ":ro" no final significa "read-only" (apenas leitura), uma boa prática de segurança.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

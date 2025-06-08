@@ -20,6 +20,7 @@ import (
 	giftApp "github.com/luiszkm/wedding_backend/internal/gift/application"
 	giftInfra "github.com/luiszkm/wedding_backend/internal/gift/infrastructure"
 	giftREST "github.com/luiszkm/wedding_backend/internal/gift/interfaces/rest"
+	"github.com/luiszkm/wedding_backend/internal/platform/auth"
 	"github.com/luiszkm/wedding_backend/internal/platform/storage"
 
 	mbApp "github.com/luiszkm/wedding_backend/internal/messageboard/application"
@@ -29,6 +30,10 @@ import (
 	galleryApp "github.com/luiszkm/wedding_backend/internal/gallery/application"
 	galleryInfra "github.com/luiszkm/wedding_backend/internal/gallery/infrastructure"
 	galleryREST "github.com/luiszkm/wedding_backend/internal/gallery/interfaces/rest"
+
+	iamApp "github.com/luiszkm/wedding_backend/internal/iam/application"
+	iamInfra "github.com/luiszkm/wedding_backend/internal/iam/infrastructure"
+	iamREST "github.com/luiszkm/wedding_backend/internal/iam/interfaces/rest"
 )
 
 func main() {
@@ -44,6 +49,7 @@ func main() {
 	bucketName := os.Getenv("R2_BUCKET_NAME")
 	publicURL := os.Getenv("R2_PUBLIC_URL")
 	dbURL := os.Getenv("DATABASE_URL")
+	jwtSecret := os.Getenv("JWT_SECRET")
 
 	dbpool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
@@ -58,6 +64,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Falha ao inicializar o serviço de storage R2: %v", err)
 	}
+	// --- Inicialização dos Serviços ---
+	jwtService := auth.NewJWTService(jwtSecret)
+	// ...
 
 	// --- Repositórios ---
 	guestRepo := guestInfra.NewPostgresGroupRepository(dbpool)
@@ -65,52 +74,61 @@ func main() {
 	selecaoRepo := giftInfra.NewPostgresSelecaoRepository(dbpool) // Novo repo
 	recadoRepo := mbInfra.NewPostgresRecadoRepository(dbpool)
 	fotoRepo := galleryInfra.NewPostgresFotoRepository(dbpool)
+	usuarioRepo := iamInfra.NewPostgresUsuarioRepository(dbpool)
 
 	// --- Serviços de Aplicação ---
 	guestService := guestApp.NewGuestService(guestRepo)
 	presenteService := giftApp.NewGiftService(presenteRepo, selecaoRepo) // Injetando novo repo
 	recadoService := mbApp.NewMessageBoardService(recadoRepo, guestRepo)
 	galleryService := galleryApp.NewGalleryService(fotoRepo, storageSvc)
+	iamService := iamApp.NewIAMService(usuarioRepo, jwtService)
 
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
 	presenteHandler := giftREST.NewGiftHandler(presenteService, storageSvc)
 	recadoHandler := mbREST.NewMessageBoardHandler(recadoService)
 	galleryHandler := galleryREST.NewGalleryHandler(galleryService)
+	iamHandler := iamREST.NewIAMHandler(iamService)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	authMiddleware := auth.Authenticator(jwtService)
 
 	r.Route("/v1", func(r chi.Router) {
-		// Rota para criar grupo (já existente)
-		r.Post("/casamentos/{idCasamento}/grupos-de-convidados", guestHandler.HandleCriarGrupoDeConvidados)
-		// Nova rota para acesso do convidado
-		r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
-		// Nova rota para submissão de RSVP em lote.
-		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
-		// rota para editar grupo de convidados
-		r.Put("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRevisarGrupo)
-		// rota para criar  presentes
-		r.Post("/casamentos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
-		// rota para listar presentes
-		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
-		// rota para finalizar seleção de presentes
-		r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)
-		//  rota de Recados
-		r.Post("/recados", recadoHandler.HandleDeixarRecado)
-		r.Get("/casamentos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)
-		r.Patch("/recados/{idRecado}", recadoHandler.HandleModerarRecado)
+		// --- Rotas Públicas ---
+		r.Post("/usuarios/registrar", iamHandler.HandleRegistrar)
+		r.Post("/usuarios/login", iamHandler.HandleLogin)
 		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
-		// rota de Galeria
-		r.Post("/casamentos/{idCasamento}/fotos", galleryHandler.HandleFazerUpload)
-		r.Get("/casamentos/{idCasamento}/fotos/publico", galleryHandler.HandleListarFotosPublicas)
-		r.Post("/fotos/{idFoto}/favoritar", galleryHandler.HandleAlternarFavorito)
-		r.Post("/fotos/{idFoto}/rotulos", galleryHandler.HandleAdicionarRotulo)
-		r.Delete("/fotos/{idFoto}/rotulos/{nomeDoRotulo}", galleryHandler.HandleRemoverRotulo)
-		r.Delete("/fotos/{idFoto}", galleryHandler.HandleDeletarFoto)
+		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
+		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
 
+		// ... outras rotas públicas
+		// --- Rotas Protegidas ---
+		// Todas as rotas dentro deste grupo exigirão um token JWT válido.
+		r.Group(func(r chi.Router) {
+			r.Use(authMiddleware)
+
+			r.Post("/casamentos/{idCasamento}/grupos-de-convidados", guestHandler.HandleCriarGrupoDeConvidados)
+			r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
+			r.Put("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRevisarGrupo)
+			// rota de presentes
+			r.Post("/casamentos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
+			r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)
+			//  rota de Recados
+			r.Post("/recados", recadoHandler.HandleDeixarRecado)
+			r.Get("/casamentos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)
+			r.Patch("/recados/{idRecado}", recadoHandler.HandleModerarRecado)
+			// rota de Galeria
+			r.Post("/casamentos/{idCasamento}/fotos", galleryHandler.HandleFazerUpload)
+			r.Get("/casamentos/{idCasamento}/fotos/publico", galleryHandler.HandleListarFotosPublicas)
+			r.Post("/fotos/{idFoto}/favoritar", galleryHandler.HandleAlternarFavorito)
+			r.Post("/fotos/{idFoto}/rotulos", galleryHandler.HandleAdicionarRotulo)
+			r.Delete("/fotos/{idFoto}/rotulos/{nomeDoRotulo}", galleryHandler.HandleRemoverRotulo)
+			r.Delete("/fotos/{idFoto}", galleryHandler.HandleDeletarFoto)
+
+		})
 	})
 
 	log.Printf("Servidor iniciado na porta %s", port)

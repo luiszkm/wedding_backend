@@ -308,4 +308,48 @@ Accept: application/json
 DELETE {{host}}/v1/fotos/8e3b6600-093e-4dba-96e3-74f851cdb345
 Accept: application/json
 
-###s
+###
+
+###
+# =================================================================
+# CONTEXTO: PLATAFORMA (V4)
+# =================================================================
+###
+
+###
+# @name Registrar Novo Usuário
+POST {{host}}/v1/usuarios/registrar
+Content-Type: application/json
+
+{
+  "nome": "João Noivo",
+  "email": "joao.noivo@exemplo.com",
+  "telefone": "31999998888",
+  "senha": "senhaForte123"
+}
+
+###
+
+###
+# @name Login de Usuário
+#
+# ANTES: Use o endpoint de registro para ter um usuário válido.
+POST {{host}}/v1/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "joao.noivo@exemplo.com",
+  "senha": "senhaForte123"
+}
+
+###
+# @name Login de Usuário (Senha Incorreta)
+POST {{host}}/v1/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "joao.noivo@exemplo.com",
+  "senha": "senhaErrada"
+}
+
+###

@@ -11,14 +11,31 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/luiszkm/wedding_backend/internal/guest/application"
-	"github.com/luiszkm/wedding_backend/internal/guest/infrastructure"
-	"github.com/luiszkm/wedding_backend/internal/guest/interfaces/rest"
+	"github.com/joho/godotenv"
+
+	guestApp "github.com/luiszkm/wedding_backend/internal/guest/application"
+	guestInfra "github.com/luiszkm/wedding_backend/internal/guest/infrastructure"
+	guestREST "github.com/luiszkm/wedding_backend/internal/guest/interfaces/rest"
+
+	giftApp "github.com/luiszkm/wedding_backend/internal/gift/application"
+	giftInfra "github.com/luiszkm/wedding_backend/internal/gift/infrastructure"
+	giftREST "github.com/luiszkm/wedding_backend/internal/gift/interfaces/rest"
+	"github.com/luiszkm/wedding_backend/internal/platform/storage"
 )
 
 func main() {
-	dbURL := "postgres://user:password@localhost:5432/wedding_db?sslmode=disable"
 	port := ":3000"
+	err := godotenv.Load()
+	if err != nil {
+		log.Println("Aviso: arquivo .env não encontrado.")
+	}
+	// --- Configuração ---
+	accountID := os.Getenv("R2_ACCOUNT_ID")
+	accessKeyID := os.Getenv("R2_ACCESS_KEY_ID")
+	secretAccessKey := os.Getenv("R2_SECRET_ACCESS_KEY")
+	bucketName := os.Getenv("R2_BUCKET_NAME")
+	publicURL := os.Getenv("R2_PUBLIC_URL")
+	dbURL := os.Getenv("DATABASE_URL")
 
 	dbpool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
@@ -29,12 +46,23 @@ func main() {
 	log.Println("Conexão com o banco de dados estabelecida com sucesso.")
 
 	// --- Composição da Raiz (Wiring) ---
-	// 1. Instancia a implementação da infraestrutura
-	guestRepo := infrastructure.NewPostgresGroupRepository(dbpool)
-	// 2. Instancia o serviço de aplicação, injetando a implementação do repositório
-	guestService := application.NewGuestService(guestRepo)
-	// 3. Instancia o handler, injetando o serviço
-	guestHandler := rest.NewGuestHandler(guestService)
+	storageSvc, err := storage.NewR2Storage(context.Background(), accountID, accessKeyID, secretAccessKey, bucketName, publicURL) // <-- PASSANDO A NOVA VARIÁVEL
+	if err != nil {
+		log.Fatalf("Falha ao inicializar o serviço de storage R2: %v", err)
+	}
+
+	// --- Repositórios ---
+	guestRepo := guestInfra.NewPostgresGroupRepository(dbpool)
+	presenteRepo := giftInfra.NewPostgresPresenteRepository(dbpool)
+	selecaoRepo := giftInfra.NewPostgresSelecaoRepository(dbpool) // Novo repo
+
+	// --- Serviços de Aplicação ---
+	guestService := guestApp.NewGuestService(guestRepo)
+	presenteService := giftApp.NewGiftService(presenteRepo, selecaoRepo) // Injetando novo repo
+
+	// --- Handlers ---
+	guestHandler := guestREST.NewGuestHandler(guestService)
+	presenteHandler := giftREST.NewGiftHandler(presenteService, storageSvc)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
@@ -48,8 +76,14 @@ func main() {
 		r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
 		// Nova rota para submissão de RSVP em lote.
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
-		// Nova rota para editar grupo de convidados
+		// rota para editar grupo de convidados
 		r.Put("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRevisarGrupo)
+		// rota para criar  presentes
+		r.Post("/casamentos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
+		// rota para listar presentes
+		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
+		// rota para finalizar seleção de presentes
+		r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao) // Nova rota
 
 	})
 

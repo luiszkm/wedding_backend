@@ -96,3 +96,84 @@ Content-Type: application/json
 }
 
 ###
+
+###
+# =================================================================
+# CONTEXTO: LISTA DE PRESENTES
+# =================================================================
+###
+
+###
+# @name CriarPresenteComUploadDeArquivo
+POST {{host}}/v1/casamentos/{{casamentoId}}/presentes
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="presente"
+
+{
+    "nome": "Batedeira Planetária com Upload",
+    "descricao": "Cor vermelha, 110V.",
+    "ehFavorito": true,
+    "categoria": "COZINHA",
+    "detalhes": {
+        "tipo": "PRODUTO_EXTERNO",
+        "linkDaLoja": "http://loja.exemplo.com/batedeira"
+    }
+}
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="foto"; filename="go_arq.png"
+Content-Type: image/png
+
+< C:/Users/luisz/Downloads/go.png
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+# @name CriarPresenteComURLExterna
+# Cria um novo presente fornecendo a URL de uma imagem externa diretamente.
+POST {{host}}/v1/casamentos/{{casamentoId}}/presentes
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="presente"
+
+{
+    "nome": "Jogo de Jantar com URL",
+    "descricao": "Aparelho de jantar com 42 peças.",
+    "ehFavorito": false,
+    "fotoUrl": "https://http.cat/200.jpg",
+    "categoria": "SALA",
+    "detalhes": {
+        "tipo": "PRODUTO_EXTERNO",
+        "linkDaLoja": "http://loja.exemplo.com/aparelho-jantar"
+    }
+}
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+###
+# @name ListarPresentesPublicos
+# Retorna a lista de presentes disponíveis para um casamento.
+# Esta requisição está PERFEITA.
+GET {{host}}/v1/casamentos/{{casamentoId}}/presentes-publico
+Accept: application/json
+
+###
+
+###
+# @name FinalizarSelecao
+#
+# ANTES de rodar: Use os endpoints anteriores para pegar
+# uma chave de acesso válida e IDs de presentes DISPONÍVEIS.
+POST {{host}}/v1/selecoes-de-presente
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "familia-da-noiva",
+  "idsDosPresentes": [
+    "80b8185a-3492-4ca0-b0a2-98db0ac877c7",
+    "4a528bd3-0687-4d4a-9bc2-f6a69c000e19"
+  ]
+}
+
+###

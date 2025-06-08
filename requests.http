@@ -177,3 +177,60 @@ Content-Type: application/json
 }
 
 ###
+
+###
+# =================================================================
+# CONTEXTO: MURAL DE RECADOS (V2)
+# =================================================================
+###
+
+###
+# @name Deixar um Recado
+#
+# ANTES de rodar: Use "CriarGrupoComSucesso" para ter uma chave de acesso válida.
+POST {{host}}/v1/recados
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "familia-da-noiva",
+  "nomeDoAutor": "Maria Eduarda",
+  "texto": "Parabéns aos noivos! Estamos muito felizes por vocês. A festa será incrível!"
+}
+
+###
+
+###
+# @name Listar Recados para Admin
+#
+# ANTES de rodar: Use o endpoint "Deixar um Recado" para criar algumas mensagens
+# associadas ao casamento com o ID da variável {{casamentoId}}.
+GET {{host}}/v1/casamentos/{{casamentoId}}/recados/admin
+Accept: application/json
+# Em um sistema real, esta rota seria protegida e exigiria um cabeçalho de autenticação:
+# Authorization: Bearer SEU_TOKEN_JWT_AQUI
+
+###
+###
+# @name Moderar Recado (Aprovar e Favoritar)
+#
+# ANTES: Use os endpoints anteriores para pegar o ID de um recado PENDENTE.
+PATCH {{host}}/v1/recados/2dbba5b6-31d9-4d64-84df-934cca3d7570
+Content-Type: application/json
+
+{
+  "status": "APROVADO",
+  "ehFavorito": true
+}
+
+###
+# @name Moderar Recado (Apenas Rejeitar)
+#
+# Exemplo de atualização parcial.
+PATCH {{host}}/v1/recados/2dbba5b6-31d9-4d64-84df-934cca3d7570
+Content-Type: application/json
+
+{
+  "status": "REJEITADO"
+}
+
+###

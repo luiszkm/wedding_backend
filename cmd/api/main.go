@@ -21,6 +21,10 @@ import (
 	giftInfra "github.com/luiszkm/wedding_backend/internal/gift/infrastructure"
 	giftREST "github.com/luiszkm/wedding_backend/internal/gift/interfaces/rest"
 	"github.com/luiszkm/wedding_backend/internal/platform/storage"
+
+	mbApp "github.com/luiszkm/wedding_backend/internal/messageboard/application"
+	mbInfra "github.com/luiszkm/wedding_backend/internal/messageboard/infrastructure"
+	mbREST "github.com/luiszkm/wedding_backend/internal/messageboard/interfaces/rest"
 )
 
 func main() {
@@ -55,15 +59,15 @@ func main() {
 	guestRepo := guestInfra.NewPostgresGroupRepository(dbpool)
 	presenteRepo := giftInfra.NewPostgresPresenteRepository(dbpool)
 	selecaoRepo := giftInfra.NewPostgresSelecaoRepository(dbpool) // Novo repo
-
+	recadoRepo := mbInfra.NewPostgresRecadoRepository(dbpool)
 	// --- Serviços de Aplicação ---
 	guestService := guestApp.NewGuestService(guestRepo)
 	presenteService := giftApp.NewGiftService(presenteRepo, selecaoRepo) // Injetando novo repo
-
+	recadoService := mbApp.NewMessageBoardService(recadoRepo, guestRepo)
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
 	presenteHandler := giftREST.NewGiftHandler(presenteService, storageSvc)
-
+	recadoHandler := mbREST.NewMessageBoardHandler(recadoService)
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -83,7 +87,12 @@ func main() {
 		// rota para listar presentes
 		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
 		// rota para finalizar seleção de presentes
-		r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao) // Nova rota
+		r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)
+		//  rota de Recados
+		r.Post("/recados", recadoHandler.HandleDeixarRecado)
+		r.Get("/casamentos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)
+		r.Patch("/recados/{idRecado}", recadoHandler.HandleModerarRecado)
+		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos) // Nova rota
 
 	})
 

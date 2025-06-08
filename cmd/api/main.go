@@ -34,6 +34,10 @@ import (
 	iamApp "github.com/luiszkm/wedding_backend/internal/iam/application"
 	iamInfra "github.com/luiszkm/wedding_backend/internal/iam/infrastructure"
 	iamREST "github.com/luiszkm/wedding_backend/internal/iam/interfaces/rest"
+
+	eventApp "github.com/luiszkm/wedding_backend/internal/event/application"
+	eventInfra "github.com/luiszkm/wedding_backend/internal/event/infrastructure"
+	eventREST "github.com/luiszkm/wedding_backend/internal/event/interfaces/rest"
 )
 
 func main() {
@@ -75,13 +79,15 @@ func main() {
 	recadoRepo := mbInfra.NewPostgresRecadoRepository(dbpool)
 	fotoRepo := galleryInfra.NewPostgresFotoRepository(dbpool)
 	usuarioRepo := iamInfra.NewPostgresUsuarioRepository(dbpool)
+	eventRepo := eventInfra.NewPostgresEventoRepository(dbpool)
 
 	// --- Serviços de Aplicação ---
 	guestService := guestApp.NewGuestService(guestRepo)
-	presenteService := giftApp.NewGiftService(presenteRepo, selecaoRepo) // Injetando novo repo
-	recadoService := mbApp.NewMessageBoardService(recadoRepo, guestRepo)
+	presenteService := giftApp.NewGiftService(presenteRepo, selecaoRepo, eventRepo)
+	recadoService := mbApp.NewMessageBoardService(recadoRepo, guestRepo, eventRepo)
 	galleryService := galleryApp.NewGalleryService(fotoRepo, storageSvc)
 	iamService := iamApp.NewIAMService(usuarioRepo, jwtService)
+	eventService := eventApp.NewEventService(eventRepo)
 
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
@@ -89,6 +95,7 @@ func main() {
 	recadoHandler := mbREST.NewMessageBoardHandler(recadoService)
 	galleryHandler := galleryREST.NewGalleryHandler(galleryService)
 	iamHandler := iamREST.NewIAMHandler(iamService)
+	eventHandler := eventREST.NewEventHandler(eventService)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
@@ -127,6 +134,11 @@ func main() {
 			r.Post("/fotos/{idFoto}/rotulos", galleryHandler.HandleAdicionarRotulo)
 			r.Delete("/fotos/{idFoto}/rotulos/{nomeDoRotulo}", galleryHandler.HandleRemoverRotulo)
 			r.Delete("/fotos/{idFoto}", galleryHandler.HandleDeletarFoto)
+
+			// rotas de eventos
+			r.Post("/eventos", eventHandler.HandleCriarEvento)
+			// r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)
+			// r.Get("/eventos", eventHandler.HandleListarEventosPorUsuario)
 
 		})
 	})

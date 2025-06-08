@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	eventDomain "github.com/luiszkm/wedding_backend/internal/event/domain"
 	guestDomain "github.com/luiszkm/wedding_backend/internal/guest/domain"
 	"github.com/luiszkm/wedding_backend/internal/messageboard/domain"
 )
@@ -13,6 +14,7 @@ import (
 type MessageBoardService struct {
 	recadoRepo domain.RecadoRepository     // Dependência do repositório de recados
 	guestRepo  guestDomain.GroupRepository // Dependência do repositório de outro contexto
+	eventRepo  eventDomain.EventoRepository
 }
 
 type ModeracaoCommand struct {
@@ -21,8 +23,8 @@ type ModeracaoCommand struct {
 }
 
 // NewMessageBoardService cria uma nova instância do serviço.
-func NewMessageBoardService(recadoRepo domain.RecadoRepository, guestRepo guestDomain.GroupRepository) *MessageBoardService {
-	return &MessageBoardService{recadoRepo: recadoRepo, guestRepo: guestRepo}
+func NewMessageBoardService(recadoRepo domain.RecadoRepository, guestRepo guestDomain.GroupRepository, eventRepo eventDomain.EventoRepository) *MessageBoardService {
+	return &MessageBoardService{recadoRepo: recadoRepo, guestRepo: guestRepo, eventRepo: eventRepo}
 }
 
 // DeixarNovoRecado orquestra a criação de um novo recado.
@@ -48,15 +50,21 @@ func (s *MessageBoardService) DeixarNovoRecado(ctx context.Context, chaveDeAcess
 	return nil
 }
 
-func (s *MessageBoardService) ListarRecadosParaAdmin(ctx context.Context, casamentoID uuid.UUID) ([]*domain.Recado, error) {
-	recados, err := s.recadoRepo.ListarPorCasamento(ctx, casamentoID)
+func (s *MessageBoardService) ListarRecadosParaAdmin(ctx context.Context, userID, idEvento uuid.UUID) ([]*domain.Recado, error) {
+	// 1. AUTORIZAÇÃO: Verifica se o usuário é o dono do evento.
+	if _, err := s.eventRepo.FindByID(ctx, userID, idEvento); err != nil {
+		return nil, fmt.Errorf("permissão negada ou evento não encontrado: %w", err)
+	}
+
+	// 2. Se a permissão for válida, busca os recados.
+	recados, err := s.recadoRepo.ListarPorEvento(ctx, idEvento) // Renomeie ListarPorCasamento
 	if err != nil {
 		return nil, fmt.Errorf("falha ao buscar lista de recados para admin: %w", err)
 	}
 	return recados, nil
 }
-func (s *MessageBoardService) ModerarRecado(ctx context.Context, recadoID uuid.UUID, cmd ModeracaoCommand) (*domain.Recado, error) {
-	recado, err := s.recadoRepo.FindByID(ctx, recadoID)
+func (s *MessageBoardService) ModerarRecado(ctx context.Context, userID, recadoID uuid.UUID, cmd ModeracaoCommand) (*domain.Recado, error) {
+	recado, err := s.recadoRepo.FindByID(ctx, userID, recadoID)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao buscar recado para moderação: %w", err)
 	}
@@ -76,7 +84,7 @@ func (s *MessageBoardService) ModerarRecado(ctx context.Context, recadoID uuid.U
 		recado.DefinirFavorito(*cmd.EhFavorito)
 	}
 
-	if err := s.recadoRepo.Update(ctx, recado); err != nil {
+	if err := s.recadoRepo.Update(ctx, userID, recado); err != nil {
 		return nil, fmt.Errorf("falha ao salvar moderação do recado: %w", err)
 	}
 

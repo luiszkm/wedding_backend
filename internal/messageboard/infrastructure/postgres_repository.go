@@ -43,7 +43,7 @@ func (r *PostgresRecadoRepository) Save(ctx context.Context, recado *domain.Reca
 	}
 	return nil
 }
-func (r *PostgresRecadoRepository) ListarPorCasamento(ctx context.Context, casamentoID uuid.UUID) ([]*domain.Recado, error) {
+func (r *PostgresRecadoRepository) ListarPorEvento(ctx context.Context, casamentoID uuid.UUID) ([]*domain.Recado, error) {
 	sql := `
 		SELECT
 			id, id_casamento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at
@@ -80,9 +80,13 @@ func (r *PostgresRecadoRepository) ListarPorCasamento(ctx context.Context, casam
 
 	return recados, nil
 }
-func (r *PostgresRecadoRepository) FindByID(ctx context.Context, recadoID uuid.UUID) (*domain.Recado, error) {
-	sql := `SELECT id, id_casamento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at FROM recados WHERE id = $1`
-
+func (r *PostgresRecadoRepository) FindByID(ctx context.Context, userID, recadoID uuid.UUID) (*domain.Recado, error) {
+	sql := `
+		SELECT r.id, r.id_evento, r.id_grupo_de_convidados, r.nome_do_autor, r.texto, r.status, r.eh_favorito, r.created_at 
+		FROM recados r
+		JOIN eventos e ON r.id_evento = e.id
+		WHERE r.id = $1 AND e.id_usuario = $2
+	`
 	row := r.db.QueryRow(ctx, sql, recadoID)
 
 	var id, idCasamento, idGrupo uuid.UUID
@@ -100,10 +104,12 @@ func (r *PostgresRecadoRepository) FindByID(ctx context.Context, recadoID uuid.U
 	recado := domain.HydrateRecado(id, idCasamento, idGrupo, nomeAutor, texto, status, ehFavorito, createdAt)
 	return recado, nil
 }
-func (r *PostgresRecadoRepository) Update(ctx context.Context, recado *domain.Recado) error {
-	sql := `UPDATE recados SET status = $1, eh_favorito = $2 WHERE id = $3`
-
-	cmdTag, err := r.db.Exec(ctx, sql, recado.Status(), recado.EhFavorito(), recado.ID())
+func (r *PostgresRecadoRepository) Update(ctx context.Context, userID uuid.UUID, recado *domain.Recado) error {
+	sql := `
+		UPDATE recados SET status = $1, eh_favorito = $2
+		WHERE id = $3 AND id_evento IN (SELECT id FROM eventos WHERE id_usuario = $4)
+	`
+	cmdTag, err := r.db.Exec(ctx, sql, recado.Status(), recado.EhFavorito(), recado.ID(), userID)
 	if err != nil {
 		return fmt.Errorf("falha ao atualizar recado: %w", err)
 	}

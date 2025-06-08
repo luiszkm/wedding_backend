@@ -7,12 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// GroupRepository é a interface de persistência para o agregado GrupoDeConvidados.
-// O repositório lida com o agregado como um todo.
 type GroupRepository interface {
 	Save(ctx context.Context, group *GrupoDeConvidados) error
 	FindByAccessKey(ctx context.Context, accessKey string) (*GrupoDeConvidados, error)
-	Update(ctx context.Context, group *GrupoDeConvidados) error
-	FindByID(ctx context.Context, id uuid.UUID) (*GrupoDeConvidados, error)
-	// Outros métodos como FindByID(id uuid.UUID) ou FindByAccessKey(key string) viriam aqui.
+	Update(ctx context.Context, userID uuid.UUID, group *GrupoDeConvidados) error        // <-- userID adicionado
+	FindByID(ctx context.Context, userID, groupID uuid.UUID) (*GrupoDeConvidados, error) // <-- userID adicionado
+	UpdateRSVP(ctx context.Context, group *GrupoDeConvidados) error
 }

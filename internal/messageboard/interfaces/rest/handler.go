@@ -12,6 +12,7 @@ import (
 	guestDomain "github.com/luiszkm/wedding_backend/internal/guest/domain"
 	"github.com/luiszkm/wedding_backend/internal/messageboard/application"
 	"github.com/luiszkm/wedding_backend/internal/messageboard/domain"
+	"github.com/luiszkm/wedding_backend/internal/platform/auth"
 	"github.com/luiszkm/wedding_backend/internal/platform/web"
 )
 
@@ -48,13 +49,18 @@ func (h *MessageBoardHandler) HandleDeixarRecado(w http.ResponseWriter, r *http.
 }
 
 func (h *MessageBoardHandler) HandleListarRecadosAdmin(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
 	idCasamento, err := uuid.Parse(chi.URLParam(r, "idCasamento"))
 	if err != nil {
 		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do casamento é inválido.", http.StatusBadRequest)
 		return
 	}
 
-	recados, err := h.service.ListarRecadosParaAdmin(r.Context(), idCasamento)
+	recados, err := h.service.ListarRecadosParaAdmin(r.Context(), userID, idCasamento)
 	if err != nil {
 		log.Printf("ERRO ao listar recados para admin: %v", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao buscar a lista de recados.", http.StatusInternalServerError)
@@ -78,6 +84,11 @@ func (h *MessageBoardHandler) HandleListarRecadosAdmin(w http.ResponseWriter, r 
 }
 
 func (h *MessageBoardHandler) HandleModerarRecado(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
 	recadoID, err := uuid.Parse(chi.URLParam(r, "idRecado"))
 	if err != nil {
 		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do recado é inválido.", http.StatusBadRequest)
@@ -95,7 +106,7 @@ func (h *MessageBoardHandler) HandleModerarRecado(w http.ResponseWriter, r *http
 		EhFavorito: reqDTO.EhFavorito,
 	}
 
-	recadoAtualizado, err := h.service.ModerarRecado(r.Context(), recadoID, cmd)
+	recadoAtualizado, err := h.service.ModerarRecado(r.Context(), userID, recadoID, cmd)
 	if err != nil {
 		if errors.Is(err, domain.ErrRecadoNaoEncontrado) {
 			web.RespondError(w, r, "NAO_ENCONTRADO", "Recado não encontrado.", http.StatusNotFound)

@@ -147,6 +147,11 @@ func (h *GuestHandler) HandleConfirmarPresenca(w http.ResponseWriter, r *http.Re
 }
 
 func (h *GuestHandler) HandleRevisarGrupo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente ou inválido no token.", http.StatusUnauthorized)
+		return
+	}
 	grupoID, err := uuid.Parse(chi.URLParam(r, "idGrupo"))
 	if err != nil {
 		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do grupo é inválido.", http.StatusBadRequest)
@@ -176,7 +181,7 @@ func (h *GuestHandler) HandleRevisarGrupo(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	err = h.service.RevisarGrupo(r.Context(), grupoID, reqDTO.ChaveDeAcesso, convidadosDominio)
+	err = h.service.RevisarGrupo(r.Context(), grupoID, userID, reqDTO.ChaveDeAcesso, convidadosDominio)
 	// ... (Lógica de tratamento de erro similar aos outros handlers) ...
 	// ...
 	// Exemplo:

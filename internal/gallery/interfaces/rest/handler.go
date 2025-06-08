@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/luiszkm/wedding_backend/internal/gallery/application"
 	"github.com/luiszkm/wedding_backend/internal/gallery/domain"
+	"github.com/luiszkm/wedding_backend/internal/platform/auth"
 	"github.com/luiszkm/wedding_backend/internal/platform/web"
 )
 
@@ -99,13 +100,18 @@ func (h *GalleryHandler) HandleListarFotosPublicas(w http.ResponseWriter, r *htt
 }
 
 func (h *GalleryHandler) HandleAlternarFavorito(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
 	fotoID, err := uuid.Parse(chi.URLParam(r, "idFoto"))
 	if err != nil {
 		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID da foto é inválido.", http.StatusBadRequest)
 		return
 	}
+	fotoAtualizada, err := h.service.AlternarFavoritoFoto(r.Context(), userID, fotoID)
 
-	fotoAtualizada, err := h.service.AlternarFavoritoFoto(r.Context(), fotoID)
 	if err != nil {
 		if errors.Is(err, domain.ErrFotoNaoEncontrada) {
 			web.RespondError(w, r, "NAO_ENCONTRADO", "Foto não encontrada.", http.StatusNotFound)
@@ -131,6 +137,11 @@ func (h *GalleryHandler) HandleAlternarFavorito(w http.ResponseWriter, r *http.R
 	web.Respond(w, r, respDTO, http.StatusOK)
 }
 func (h *GalleryHandler) HandleAdicionarRotulo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
 	fotoID, err := uuid.Parse(chi.URLParam(r, "idFoto"))
 	if err != nil {
 		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID da foto é inválido.", http.StatusBadRequest)
@@ -143,7 +154,7 @@ func (h *GalleryHandler) HandleAdicionarRotulo(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	err = h.service.AdicionarRotulo(r.Context(), fotoID, reqDTO.NomeDoRotulo)
+	err = h.service.AdicionarRotulo(r.Context(), userID, fotoID, reqDTO.NomeDoRotulo)
 	if err != nil {
 		// Adicionar tratamento para erros de negócio (foto não encontrada, rótulo inválido)
 		log.Printf("ERRO ao adicionar rótulo: %v", err)
@@ -155,6 +166,11 @@ func (h *GalleryHandler) HandleAdicionarRotulo(w http.ResponseWriter, r *http.Re
 }
 
 func (h *GalleryHandler) HandleRemoverRotulo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
 	fotoID, err := uuid.Parse(chi.URLParam(r, "idFoto"))
 	if err != nil {
 		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID da foto é inválido.", http.StatusBadRequest)
@@ -162,7 +178,7 @@ func (h *GalleryHandler) HandleRemoverRotulo(w http.ResponseWriter, r *http.Requ
 	}
 	nomeRotulo := chi.URLParam(r, "nomeDoRotulo")
 
-	err = h.service.RemoverRotulo(r.Context(), fotoID, nomeRotulo)
+	err = h.service.RemoverRotulo(r.Context(), userID, fotoID, nomeRotulo)
 	if err != nil {
 		// Adicionar tratamento para erros de negócio
 		log.Printf("ERRO ao remover rótulo: %v", err)
@@ -173,13 +189,18 @@ func (h *GalleryHandler) HandleRemoverRotulo(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 func (h *GalleryHandler) HandleDeletarFoto(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
 	fotoID, err := uuid.Parse(chi.URLParam(r, "idFoto"))
 	if err != nil {
 		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID da foto é inválido.", http.StatusBadRequest)
 		return
 	}
 
-	err = h.service.DeletarFoto(r.Context(), fotoID)
+	err = h.service.DeletarFoto(r.Context(), userID, fotoID)
 	if err != nil {
 		if errors.Is(err, domain.ErrFotoNaoEncontrada) {
 			web.RespondError(w, r, "NAO_ENCONTRADO", "Foto não encontrada.", http.StatusNotFound)

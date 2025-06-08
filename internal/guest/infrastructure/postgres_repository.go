@@ -121,22 +121,20 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, accessKey
 	return grupo, nil
 }
 
-func (r *PostgresGroupRepository) FindByID(ctx context.Context, groupID uuid.UUID) (*domain.GrupoDeConvidados, error) {
+func (r *PostgresGroupRepository) FindByID(ctx context.Context, userID, groupID uuid.UUID) (*domain.GrupoDeConvidados, error) {
 	sql := `
 		SELECT 
-			g.id, g.id_casamento, g.chave_de_acesso,
+			g.id, g.id_evento, g.chave_de_acesso,
 			c.id, c.nome, c.status_rsvp
-		FROM grupos_de_convidados g
+		FROM convidados_grupos g
+		JOIN eventos e ON g.id_evento = e.id
 		LEFT JOIN convidados c ON g.id = c.id_grupo
-		WHERE g.id = $1;
+		WHERE g.id = $1 AND e.id_usuario = $2;
 	`
-	rows, err := r.db.Query(ctx, sql, groupID)
+	rows, err := r.db.Query(ctx, sql, groupID, userID)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao consultar grupo por id: %w", err)
 	}
-	// ESTA LINHA É A MAIS IMPORTANTE E A PROVÁVEL CAUSA DO ERRO.
-	// defer garante que rows.Close() seja chamado ao final da função,
-	// liberando a conexão de volta para o pool.
 	defer rows.Close()
 
 	var grupo *domain.GrupoDeConvidados
@@ -182,7 +180,7 @@ func (r *PostgresGroupRepository) FindByID(ctx context.Context, groupID uuid.UUI
 	return grupo, nil
 }
 
-func (r *PostgresGroupRepository) Update(ctx context.Context, group *domain.GrupoDeConvidados) error {
+func (r *PostgresGroupRepository) Update(ctx context.Context, userID uuid.UUID, group *domain.GrupoDeConvidados) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("falha ao iniciar transação para update: %w", err)
@@ -190,17 +188,21 @@ func (r *PostgresGroupRepository) Update(ctx context.Context, group *domain.Grup
 	defer tx.Rollback(ctx)
 
 	// 1. Atualiza os dados do grupo principal (chave de acesso e timestamp)
-	_, err = tx.Exec(ctx,
-		"UPDATE grupos_de_convidados SET chave_de_acesso = $1, updated_at = $2 WHERE id = $3",
-		group.ChaveDeAcesso(), group.UpdatedAt(), group.ID())
+	updateGroupSQL := `
+		UPDATE convidados_grupos SET chave_de_acesso = $1, updated_at = $2 
+		WHERE id = $3 AND id_evento IN (SELECT id FROM eventos WHERE id_usuario = $4)
+	`
+	cmdTag, err := tx.Exec(ctx, updateGroupSQL, group.ChaveDeAcesso(), group.UpdatedAt(), group.ID(), userID)
 	if err != nil {
 		return fmt.Errorf("falha ao atualizar dados do grupo: %w", err)
 	}
-
+	// Se nenhuma linha foi afetada, ou o grupo não existe ou o usuário não tem permissão.
+	if cmdTag.RowsAffected() == 0 {
+		return domain.ErrGrupoNaoEncontrado
+	}
 	// 2. Remove TODOS os convidados antigos associados a este grupo.
 	// Esta é a parte "delete" da estratégia "delete-then-insert".
-	_, err = tx.Exec(ctx, "DELETE FROM convidados WHERE id_grupo = $1", group.ID())
-	if err != nil {
+	if _, err := tx.Exec(ctx, "DELETE FROM convidados WHERE id_grupo = $1", group.ID()); err != nil {
 		return fmt.Errorf("falha ao deletar convidados antigos: %w", err)
 	}
 
@@ -224,5 +226,32 @@ func (r *PostgresGroupRepository) Update(ctx context.Context, group *domain.Grup
 	}
 
 	// 4. Confirma a transação.
+	return tx.Commit(ctx)
+}
+
+func (r *PostgresGroupRepository) UpdateRSVP(ctx context.Context, group *domain.GrupoDeConvidados) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("falha ao iniciar transação para update de rsvp: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Prepara um lote para atualizar todos os convidados de uma vez.
+	batch := &pgx.Batch{}
+	updateGuestSQL := "UPDATE convidados SET status_rsvp = $1 WHERE id = $2 AND id_grupo = $3"
+	for _, convidado := range group.Convidados() {
+		batch.Queue(updateGuestSQL, convidado.StatusRSVP(), convidado.ID(), group.ID())
+	}
+
+	br := tx.SendBatch(ctx, batch)
+	defer br.Close()
+
+	// Verifica se todas as operações no lote foram bem-sucedidas.
+	for i := 0; i < len(group.Convidados()); i++ {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("falha ao executar update de rsvp de convidado no lote: %w", err)
+		}
+	}
+
 	return tx.Commit(ctx)
 }

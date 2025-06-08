@@ -12,7 +12,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/luiszkm/wedding_backend/internal/gift/application"
 	"github.com/luiszkm/wedding_backend/internal/gift/domain"
+	"github.com/luiszkm/wedding_backend/internal/platform/auth"
 	"github.com/luiszkm/wedding_backend/internal/platform/storage"
+	"github.com/luiszkm/wedding_backend/internal/platform/web"
 )
 
 type GiftHandler struct {
@@ -24,49 +26,34 @@ func NewGiftHandler(service *application.GiftService, storageService storage.Fil
 	return &GiftHandler{service: service, storageService: storageService}
 }
 
-// RespondError writes a JSON error response with a given code, message, and HTTP status.
-func RespondError(w http.ResponseWriter, r *http.Request, code string, message string, status int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	resp := map[string]interface{}{
-		"error": map[string]interface{}{
-			"code":    code,
-			"message": message,
-		},
-	}
-	json.NewEncoder(w).Encode(resp)
-}
-
-// Respond writes a JSON response with a given payload and HTTP status.
-func Respond(w http.ResponseWriter, r *http.Request, payload interface{}, status int) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(payload)
-}
-
 func (h *GiftHandler) HandleCriarPresente(w http.ResponseWriter, r *http.Request) {
-	idCasamento, err := uuid.Parse(chi.URLParam(r, "idCasamento"))
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
+	idEvento, err := uuid.Parse(chi.URLParam(r, "idCasamento"))
 	if err != nil {
-		RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do casamento é inválido.", http.StatusBadRequest)
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do casamento é inválido.", http.StatusBadRequest)
 		return
 	}
 
 	if err := r.ParseMultipartForm(10 << 20); err != nil { // 10 MB
-		RespondError(w, r, "CORPO_GRANDE", "Requisição muito grande.", http.StatusBadRequest)
+		web.RespondError(w, r, "CORPO_GRANDE", "Requisição muito grande.", http.StatusBadRequest)
 		return
 	}
 
 	presenteJSON := r.FormValue("presente")
 	var reqDTO CriarPresenteRequestDTO
 	if err := json.Unmarshal([]byte(presenteJSON), &reqDTO); err != nil {
-		RespondError(w, r, "DADOS_INVALIDOS", "Os dados do presente estão malformados.", http.StatusBadRequest)
+		web.RespondError(w, r, "DADOS_INVALIDOS", "Os dados do presente estão malformados.", http.StatusBadRequest)
 		return
 	}
 
 	var fotoFinalURL string
 	file, fileHeader, err := r.FormFile("foto")
 	if err != nil && err != http.ErrMissingFile {
-		RespondError(w, r, "ERRO_ARQUIVO", "Erro ao processar o arquivo.", http.StatusBadRequest)
+		web.RespondError(w, r, "ERRO_ARQUIVO", "Erro ao processar o arquivo.", http.StatusBadRequest)
 		return
 	}
 
@@ -75,7 +62,7 @@ func (h *GiftHandler) HandleCriarPresente(w http.ResponseWriter, r *http.Request
 		uploadedURL, _, err := h.storageService.Upload(r.Context(), file, fileHeader.Header.Get("Content-Type"), fileHeader.Size)
 		if err != nil {
 			log.Printf("ERRO de upload: %v", err)
-			RespondError(w, r, "UPLOAD_FALHOU", "Não foi possível enviar a imagem.", http.StatusInternalServerError)
+			web.RespondError(w, r, "UPLOAD_FALHOU", "Não foi possível enviar a imagem.", http.StatusInternalServerError)
 			return
 		}
 		fotoFinalURL = uploadedURL
@@ -88,22 +75,30 @@ func (h *GiftHandler) HandleCriarPresente(w http.ResponseWriter, r *http.Request
 		LinkDaLoja: reqDTO.Detalhes.LinkDaLoja,
 	}
 
-	novoPresente, err := h.service.CriarNovoPresente(r.Context(), idCasamento, reqDTO.Nome,
-		reqDTO.Descricao, fotoFinalURL, reqDTO.EhFavorito, reqDTO.Categoria,
-		detalhesDominio)
+	novoPresente, err := h.service.CriarNovoPresente(
+		r.Context(),
+		userID,
+		idEvento,
+		reqDTO.Nome,
+		reqDTO.Descricao,
+		fotoFinalURL,
+		reqDTO.Categoria,
+		reqDTO.EhFavorito,
+		detalhesDominio,
+	)
 	if err != nil {
 		// ... tratamento de erros de negócio ...
-		RespondError(w, r, "ERRO_INTERNO", "Falha ao criar presente.", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao criar presente.", http.StatusInternalServerError)
 		return
 	}
 
-	Respond(w, r, CriarPresenteResponseDTO{IDPresente: novoPresente.ID().String()}, http.StatusCreated)
+	web.Respond(w, r, CriarPresenteResponseDTO{IDPresente: novoPresente.ID().String()}, http.StatusCreated)
 }
 
 func (h *GiftHandler) HandleListarPresentesPublicos(w http.ResponseWriter, r *http.Request) {
 	idCasamento, err := uuid.Parse(chi.URLParam(r, "idCasamento"))
 	if err != nil {
-		RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do casamento é inválido.", http.StatusBadRequest)
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do casamento é inválido.", http.StatusBadRequest)
 		return
 	}
 
@@ -111,7 +106,7 @@ func (h *GiftHandler) HandleListarPresentesPublicos(w http.ResponseWriter, r *ht
 	presentes, err := h.service.ListarPresentesDisponiveis(r.Context(), idCasamento)
 	if err != nil {
 		log.Printf("ERRO: %v\n", err)
-		RespondError(w, r, "ERRO_INTERNO", "Falha ao buscar a lista de presentes.", http.StatusInternalServerError)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao buscar a lista de presentes.", http.StatusInternalServerError)
 		return
 	}
 
@@ -133,7 +128,7 @@ func (h *GiftHandler) HandleListarPresentesPublicos(w http.ResponseWriter, r *ht
 	}
 
 	// 3. Responde com sucesso
-	Respond(w, r, respDTO, http.StatusOK)
+	web.Respond(w, r, respDTO, http.StatusOK)
 }
 
 func (h *GiftHandler) HandleFinalizarSelecao(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +137,7 @@ func (h *GiftHandler) HandleFinalizarSelecao(w http.ResponseWriter, r *http.Requ
 
 	ids, err := parseUUIDs(reqDTO.IDsDosPresentes)
 	if err != nil {
-		// ... responder com erro 400 ...
+		// ... web.responder com erro 400 ...
 	}
 
 	selecao, err := h.service.FinalizarSelecaoDePresentes(r.Context(), reqDTO.ChaveDeAcesso, ids)
@@ -154,7 +149,7 @@ func (h *GiftHandler) HandleFinalizarSelecao(w http.ResponseWriter, r *http.Requ
 				Mensagem:              "Um ou mais itens na sua lista já foram selecionados.",
 				PresentesConflitantes: stringUUIDs(conflitoErr.PresentesIDs),
 			}
-			Respond(w, r, respConflito, http.StatusConflict)
+			web.Respond(w, r, respConflito, http.StatusConflict)
 			return
 		}
 		// ... tratar outros erros (404 para chave de acesso, 500, etc) ...
@@ -171,7 +166,7 @@ func (h *GiftHandler) HandleFinalizarSelecao(w http.ResponseWriter, r *http.Requ
 		Mensagem:             "Sua seleção foi confirmada com sucesso. Obrigado!",
 		PresentesConfirmados: presentesDTO,
 	}
-	Respond(w, r, respDTO, http.StatusCreated)
+	web.Respond(w, r, respDTO, http.StatusCreated)
 }
 
 func parseUUIDs(ids []string) ([]uuid.UUID, error) {

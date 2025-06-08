@@ -123,18 +123,19 @@ func (r *PostgresFotoRepository) ListarPublicasPorCasamento(ctx context.Context,
 
 	return fotos, nil
 }
-func (r *PostgresFotoRepository) FindByID(ctx context.Context, fotoID uuid.UUID) (*domain.Foto, error) {
+func (r *PostgresFotoRepository) FindByID(ctx context.Context, userID, fotoID uuid.UUID) (*domain.Foto, error) {
 	// Query para buscar a foto e agregar seus rótulos
 	sql := `
 		SELECT
-			f.id, f.id_casamento, f.storage_key, f.url_publica, f.eh_favorito, f.created_at,
+			f.id, f.id_evento, f.storage_key, f.url_publica, f.eh_favorito, f.created_at,
 			COALESCE(ARRAY_AGG(fr.nome_rotulo) FILTER (WHERE fr.nome_rotulo IS NOT NULL), '{}') as rotulos
 		FROM fotos f
+		JOIN eventos e ON f.id_evento = e.id
 		LEFT JOIN fotos_rotulos fr ON f.id = fr.id_foto
-		WHERE f.id = $1
+		WHERE f.id = $1 AND e.id_usuario = $2
 		GROUP BY f.id;
 	`
-	row := r.db.QueryRow(ctx, sql, fotoID)
+	row := r.db.QueryRow(ctx, sql, fotoID, userID)
 
 	var id, idCasamento uuid.UUID
 	var storageKey, urlPublica string
@@ -157,7 +158,7 @@ func (r *PostgresFotoRepository) FindByID(ctx context.Context, fotoID uuid.UUID)
 	foto := domain.HydrateFoto(id, idCasamento, storageKey, urlPublica, ehFavorito, createdAt, domainRotulos)
 	return foto, nil
 }
-func (r *PostgresFotoRepository) Update(ctx context.Context, foto *domain.Foto) error {
+func (r *PostgresFotoRepository) Update(ctx context.Context, userID uuid.UUID, foto *domain.Foto) error {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("falha ao iniciar transação para update de foto: %w", err)
@@ -165,9 +166,16 @@ func (r *PostgresFotoRepository) Update(ctx context.Context, foto *domain.Foto) 
 	defer tx.Rollback(ctx)
 
 	// 1. Atualiza os campos na tabela principal 'fotos'.
-	updateFotoSQL := `UPDATE fotos SET eh_favorito = $1 WHERE id = $2`
-	if _, err := tx.Exec(ctx, updateFotoSQL, foto.EhFavorito(), foto.ID()); err != nil {
-		return fmt.Errorf("falha ao atualizar dados da foto: %w", err)
+	updateFotoSQL := `
+        UPDATE fotos f SET eh_favorito = $1 
+        WHERE f.id = $2 AND f.id_evento IN (SELECT e.id FROM eventos e WHERE e.id_usuario = $3)
+    `
+	cmdTag, err := tx.Exec(ctx, updateFotoSQL, foto.EhFavorito(), foto.ID(), userID)
+	if err != nil {
+		return fmt.Errorf("falha ao executar update de foto: %w", err)
+	}
+	if cmdTag.RowsAffected() == 0 {
+		return domain.ErrFotoNaoEncontrada
 	}
 
 	// 2. Sincroniza os rótulos usando a estratégia "delete-then-insert".
@@ -198,14 +206,41 @@ func (r *PostgresFotoRepository) Update(ctx context.Context, foto *domain.Foto) 
 	// 3. Confirma a transação.
 	return tx.Commit(ctx)
 }
-func (r *PostgresFotoRepository) Delete(ctx context.Context, fotoID uuid.UUID) error {
-	sql := `DELETE FROM fotos WHERE id = $1`
-	cmdTag, err := r.db.Exec(ctx, sql, fotoID)
+func (r *PostgresFotoRepository) Delete(ctx context.Context, userID uuid.UUID, fotoID uuid.UUID) error {
+	tx, err := r.db.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("falha ao deletar foto: %w", err)
+		return fmt.Errorf("falha ao iniciar transação para deletar foto: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Verifica se a foto existe e pertence ao usuário
+	checkFotoSQL := `
+		SELECT id FROM fotos f
+		JOIN eventos e ON f.id_evento = e.id
+		WHERE f.id = $1 AND e.id_usuario = $2
+	`
+	var id uuid.UUID
+	if err := tx.QueryRow(ctx, checkFotoSQL, fotoID, userID).Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return domain.ErrFotoNaoEncontrada // Crie este erro no seu pacote de domínio
+		}
+		return fmt.Errorf("falha ao verificar existência da foto: %w", err)
+	}
+
+	// Deleta os rótulos associados à foto
+	if _, err := tx.Exec(ctx, "DELETE FROM fotos_rotulos WHERE id_foto = $1", fotoID); err != nil {
+		return fmt.Errorf("falha ao deletar rótulos da foto: %w", err)
+	}
+
+	// Deleta a foto
+	deleteFotoSQL := "DELETE FROM fotos WHERE id = $1"
+	cmdTag, err := tx.Exec(ctx, deleteFotoSQL, fotoID)
+	if err != nil {
+		return fmt.Errorf("falha ao executar delete de foto: %w", err)
 	}
 	if cmdTag.RowsAffected() == 0 {
-		return domain.ErrFotoNaoEncontrada // Reutilizando nosso erro
+		return domain.ErrFotoNaoEncontrada
 	}
-	return nil
+
+	return tx.Commit(ctx)
 }

@@ -7,21 +7,31 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	eventDomain "github.com/luiszkm/wedding_backend/internal/event/domain"
 	"github.com/luiszkm/wedding_backend/internal/gift/domain"
 )
 
 type GiftService struct {
 	repo        domain.PresenteRepository
 	selecaoRepo domain.SelecaoRepository
+	eventRepo   eventDomain.EventoRepository // <-- Nova dependência
+
 }
 
-func NewGiftService(repo domain.PresenteRepository, selecaoRepo domain.SelecaoRepository) *GiftService {
-	return &GiftService{repo: repo, selecaoRepo: selecaoRepo}
+func NewGiftService(presenteRepo domain.PresenteRepository, selecaoRepo domain.SelecaoRepository, eventRepo eventDomain.EventoRepository) *GiftService {
+	return &GiftService{repo: presenteRepo, selecaoRepo: selecaoRepo, eventRepo: eventRepo}
 }
 
-func (s *GiftService) CriarNovoPresente(ctx context.Context, idCasamento uuid.UUID, nome, desc,
-	fotoURL string, favorito bool, categoria string, detalhes domain.DetalhesPresente) (*domain.Presente, error) {
-	novoPresente, err := domain.NewPresente(idCasamento, nome, desc, fotoURL, favorito, categoria, detalhes)
+func (s *GiftService) CriarNovoPresente(ctx context.Context, userID, idEvento uuid.UUID, nome, desc, fotoURL, categoria string, favorito bool, detalhes domain.DetalhesPresente) (*domain.Presente, error) {
+	// 1. AUTORIZAÇÃO: Verifica se o usuário logado é o dono do evento.
+	_, err := s.eventRepo.FindByID(ctx, userID, idEvento)
+	if err != nil {
+		// Retorna o erro do repositório (ex: não encontrado), que o handler traduzirá para 403 ou 404.
+		return nil, fmt.Errorf("permissão negada ou evento não encontrado: %w", err)
+	}
+
+	// 2. LÓGICA DE NEGÓCIO: Se a autorização passou, cria o presente.
+	novoPresente, err := domain.NewPresente(idEvento, nome, desc, fotoURL, favorito, categoria, detalhes)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +42,6 @@ func (s *GiftService) CriarNovoPresente(ctx context.Context, idCasamento uuid.UU
 
 	return novoPresente, nil
 }
-
 func (s *GiftService) ListarPresentesDisponiveis(ctx context.Context, casamentoID uuid.UUID) ([]*domain.Presente, error) {
 	presentes, err := s.repo.ListarDisponiveisPorCasamento(ctx, casamentoID)
 	if err != nil {

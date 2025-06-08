@@ -76,9 +76,9 @@ func (s *GalleryService) ListarFotosPublicas(ctx context.Context, casamentoID uu
 	}
 	return fotos, nil
 }
-func (s *GalleryService) AlternarFavoritoFoto(ctx context.Context, fotoID uuid.UUID) (*domain.Foto, error) {
+func (s *GalleryService) AlternarFavoritoFoto(ctx context.Context, userID uuid.UUID, fotoID uuid.UUID) (*domain.Foto, error) {
 	// 1. Carregar o agregado
-	foto, err := s.fotoRepo.FindByID(ctx, fotoID)
+	foto, err := s.fotoRepo.FindByID(ctx, userID, fotoID)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao buscar foto para favoritar: %w", err)
 	}
@@ -87,15 +87,15 @@ func (s *GalleryService) AlternarFavoritoFoto(ctx context.Context, fotoID uuid.U
 	foto.AlternarFavorito()
 
 	// 3. Persistir as alterações
-	if err := s.fotoRepo.Update(ctx, foto); err != nil {
+	if err := s.fotoRepo.Update(ctx, userID, foto); err != nil {
 		return nil, fmt.Errorf("falha ao salvar alteração de favorito: %w", err)
 	}
 
 	return foto, nil
 }
 
-func (s *GalleryService) AdicionarRotulo(ctx context.Context, fotoID uuid.UUID, nomeRotulo string) error {
-	foto, err := s.fotoRepo.FindByID(ctx, fotoID)
+func (s *GalleryService) AdicionarRotulo(ctx context.Context, userID uuid.UUID, fotoID uuid.UUID, nomeRotulo string) error {
+	foto, err := s.fotoRepo.FindByID(ctx, userID, fotoID)
 	if err != nil {
 		return fmt.Errorf("falha ao buscar foto para adicionar rótulo: %w", err)
 	}
@@ -105,11 +105,11 @@ func (s *GalleryService) AdicionarRotulo(ctx context.Context, fotoID uuid.UUID, 
 		return err
 	}
 
-	return s.fotoRepo.Update(ctx, foto)
+	return s.fotoRepo.Update(ctx, userID, foto)
 }
 
-func (s *GalleryService) RemoverRotulo(ctx context.Context, fotoID uuid.UUID, nomeRotulo string) error {
-	foto, err := s.fotoRepo.FindByID(ctx, fotoID)
+func (s *GalleryService) RemoverRotulo(ctx context.Context, userID uuid.UUID, fotoID uuid.UUID, nomeRotulo string) error {
+	foto, err := s.fotoRepo.FindByID(ctx, userID, fotoID)
 	if err != nil {
 		return fmt.Errorf("falha ao buscar foto para remover rótulo: %w", err)
 	}
@@ -119,11 +119,11 @@ func (s *GalleryService) RemoverRotulo(ctx context.Context, fotoID uuid.UUID, no
 		return err
 	}
 
-	return s.fotoRepo.Update(ctx, foto)
+	return s.fotoRepo.Update(ctx, userID, foto)
 }
-func (s *GalleryService) DeletarFoto(ctx context.Context, fotoID uuid.UUID) error {
+func (s *GalleryService) DeletarFoto(ctx context.Context, userID uuid.UUID, fotoID uuid.UUID) error {
 	// 1. Busca os metadados da foto para obter a chave de armazenamento (storageKey).
-	foto, err := s.fotoRepo.FindByID(ctx, fotoID)
+	foto, err := s.fotoRepo.FindByID(ctx, userID, fotoID)
 	if err != nil {
 		return fmt.Errorf("falha ao buscar foto para deletar: %w", err)
 	}
@@ -137,7 +137,7 @@ func (s *GalleryService) DeletarFoto(ctx context.Context, fotoID uuid.UUID) erro
 	}
 
 	// 3. Se o arquivo foi apagado do storage com sucesso, apaga o registro do banco.
-	if err := s.fotoRepo.Delete(ctx, fotoID); err != nil {
+	if err := s.fotoRepo.Delete(ctx, userID, fotoID); err != nil {
 		return fmt.Errorf("falha ao deletar registro da foto no banco: %w", err)
 	}
 

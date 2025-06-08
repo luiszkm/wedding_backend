@@ -57,28 +57,27 @@ func (s *GuestService) ConfirmarPresencaGrupo(ctx context.Context, chaveDeAcesso
 	}
 
 	// 3. Persistir o agregado inteiro com seu novo estado.
-	if err := s.repo.Update(ctx, grupo); err != nil {
+	if err := s.repo.UpdateRSVP(ctx, grupo); err != nil {
 		return fmt.Errorf("falha ao salvar confirmação de presença: %w", err)
 	}
 
 	return nil
 }
-func (s *GuestService) RevisarGrupo(ctx context.Context, groupID uuid.UUID, chaveDeAcesso string, convidadosParaRevisao []domain.ConvidadoParaRevisao) error {
-	// 1. Carregar o agregado
-	grupo, err := s.repo.FindByID(ctx, groupID)
+func (s *GuestService) RevisarGrupo(ctx context.Context, userID, groupID uuid.UUID, chaveDeAcesso string, convidadosParaRevisao []domain.ConvidadoParaRevisao) error {
+	// 1. Carrega o agregado, já com a verificação de propriedade no repositório.
+	grupo, err := s.repo.FindByID(ctx, userID, groupID)
 	if err != nil {
 		return fmt.Errorf("falha ao buscar grupo para revisão: %w", err)
 	}
 
-	// 2. Executar a lógica de negócio no domínio
+	// 2. Executa a lógica de negócio no domínio
 	if err := grupo.Revisar(chaveDeAcesso, convidadosParaRevisao); err != nil {
 		return err
 	}
 
-	// 3. Persistir as alterações
-	if err := s.repo.Update(ctx, grupo); err != nil {
+	// 3. Persiste as alterações, também com verificação de propriedade.
+	if err := s.repo.Update(ctx, userID, grupo); err != nil {
 		return fmt.Errorf("falha ao salvar revisão do grupo: %w", err)
 	}
-
 	return nil
 }

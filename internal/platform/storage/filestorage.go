@@ -2,13 +2,13 @@
 package storage
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -19,14 +19,14 @@ import (
 
 // FileStorage define a interface para um serviço de armazenamento de arquivos.
 type FileStorage interface {
-	Upload(ctx context.Context, file io.Reader, fileType string, fileSize int64) (string, error)
+	Upload(ctx context.Context, file io.Reader, fileType string, fileSize int64) (url string, key string, err error)
+	Delete(ctx context.Context, key string) error
 }
 
 // R2Storage é a implementação para o Cloudflare R2.
 type R2Storage struct {
 	client     *s3.Client
 	bucketName string
-	accountID  string
 	publicURL  string
 }
 
@@ -38,8 +38,6 @@ func NewR2Storage(ctx context.Context, accountID, accessKeyID, secretAccessKey, 
 		}, nil
 	})
 
-	// --- Bloco Novo: Criando um cliente HTTP customizado ---
-	// Forçamos o uso de TLS 1.2, que é mais robusto e pode resolver problemas de handshake.
 	customTransport := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
@@ -48,7 +46,6 @@ func NewR2Storage(ctx context.Context, accountID, accessKeyID, secretAccessKey, 
 	customHTTPClient := &http.Client{
 		Transport: customTransport,
 	}
-	// --- Fim do Bloco Novo ---
 
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithEndpointResolverWithOptions(r2Resolver),
@@ -64,46 +61,54 @@ func NewR2Storage(ctx context.Context, accountID, accessKeyID, secretAccessKey, 
 	return &R2Storage{
 		client:     client,
 		bucketName: bucketName,
-		accountID:  accountID,
 		publicURL:  publicURL,
 	}, nil
 }
 
 // Upload envia um arquivo para o R2 e retorna sua URL pública.
-func (s *R2Storage) Upload(ctx context.Context, file io.Reader, fileType string, fileSize int64) (string, error) {
-	// Gera uma chave única para o arquivo para evitar colisões de nome.
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		return "", fmt.Errorf("erro de debug: falha ao ler o stream para a memória: %w", err)
-	}
-	// 2. Agora você pode "ver" os dados.
-	log.Printf("[DEBUG] Tamanho do arquivo lido na memória: %d bytes", len(fileBytes))
-	log.Printf("[DEBUG] Tipo de conteúdo detectado: %s", http.DetectContentType(fileBytes))
+func (s *R2Storage) Upload(ctx context.Context, file io.Reader, fileType string, fileSize int64) (string, string, error) {
+	key := fmt.Sprintf("wedding/%d-%s", time.Now().UnixNano(), uuid.New().String())
 
-	// Cuidado ao imprimir o conteúdo se o arquivo for grande.
-	// Imprimir os primeiros 100 bytes pode ser útil.
-	if len(fileBytes) > 100 {
-		log.Printf("[DEBUG] Primeiros 100 bytes (em hexadecimal): %x", fileBytes[:100])
-	} else {
-		log.Printf("[DEBUG] Conteúdo (em hexadecimal): %x", fileBytes)
-	}
-
-	// 3. Cria um NOVO leitor a partir dos bytes em memória para o upload.
-	bodyReader := bytes.NewReader(fileBytes)
-
-	key := fmt.Sprintf("presentes/%s", uuid.New().String())
-
-	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
+	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:        aws.String(s.bucketName),
 		Key:           aws.String(key),
-		Body:          bodyReader, // Usa o novo leitor
+		Body:          file,
 		ContentType:   aws.String(fileType),
-		ContentLength: aws.Int64(int64(len(fileBytes))), // Usa o tamanho real lido
+		ContentLength: &fileSize,
 	})
 	if err != nil {
-		return "", fmt.Errorf("falha ao fazer upload para o r2: %w", err)
+		return "", "", fmt.Errorf("falha ao fazer upload para o r2: %w", err)
 	}
 
 	url := fmt.Sprintf("%s/%s", s.publicURL, key)
-	return url, nil
+	// Retorna a URL pública, a chave única do arquivo e nenhum erro.
+	return url, key, nil
+}
+func (s *R2Storage) Delete(ctx context.Context, key string) error {
+	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(s.bucketName),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("falha ao deletar objeto no r2: %w", err)
+	}
+	return nil
+}
+
+type MockStorage struct{}
+
+func NewMockStorage() FileStorage {
+	return &MockStorage{}
+}
+
+// Upload no mock agora também retorna uma chave fake.
+func (s *MockStorage) Upload(ctx context.Context, file io.Reader, fileType string, fileSize int64) (string, string, error) {
+	fakeURL := "https://fake-bucket.s3.amazonaws.com/presentes/placeholder.jpg"
+	fakeKey := "presentes/placeholder.jpg"
+	return fakeURL, fakeKey, nil
+}
+func (s *MockStorage) Delete(ctx context.Context, key string) error {
+	// No mock, apenas logamos a ação e retornamos sucesso.
+	log.Printf("[MOCK] Deletando arquivo com a chave: %s", key)
+	return nil
 }

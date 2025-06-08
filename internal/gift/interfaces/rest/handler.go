@@ -72,7 +72,7 @@ func (h *GiftHandler) HandleCriarPresente(w http.ResponseWriter, r *http.Request
 
 	if file != nil {
 		defer file.Close()
-		uploadedURL, err := h.storageService.Upload(r.Context(), file, fileHeader.Header.Get("Content-Type"), fileHeader.Size)
+		uploadedURL, _, err := h.storageService.Upload(r.Context(), file, fileHeader.Header.Get("Content-Type"), fileHeader.Size)
 		if err != nil {
 			log.Printf("ERRO de upload: %v", err)
 			RespondError(w, r, "UPLOAD_FALHOU", "Não foi possível enviar a imagem.", http.StatusInternalServerError)

@@ -234,3 +234,78 @@ Content-Type: application/json
 }
 
 ###
+
+###
+# @name Upload de Múltiplas Fotos
+#
+# Envia duas imagens e um rótulo em uma única requisição.
+POST {{host}}/v1/casamentos/{{casamentoId}}/fotos
+Content-Type: multipart/form-data; boundary=----WebAppBoundary
+
+------WebAppBoundary
+Content-Disposition: form-data; name="rotulo"
+
+familia
+------WebAppBoundary
+Content-Disposition: form-data; name="imagens[]"; filename="foto1.jpg"
+Content-Type: image/jpeg
+
+< C:/Users/luisz/Downloads/go.png
+------WebAppBoundary
+Content-Disposition: form-data; name="imagens[]"; filename="foto2.png"
+Content-Type: image/png
+
+< C:/Users/luisz/Downloads/go.png
+------WebAppBoundary--
+
+###
+
+###
+# @name Listar Todas as Fotos Públicas
+GET {{host}}/v1/casamentos/{{casamentoId}}/fotos/publico
+Accept: application/json
+
+###
+# @name Listar Fotos Públicas com Filtro de Rótulo
+# Altere o valor do rótulo para testar o filtro (ex: FAMILIA, LUADEMEL)
+GET {{host}}/v1/casamentos/{{casamentoId}}/fotos/publico?rotulo=familia
+Accept: application/json
+
+###
+###
+# @name Alternar Favorito de uma Foto
+#
+# ANTES: Use o endpoint de upload para criar uma foto e pegue seu ID.
+# Execute este comando duas vezes para ver o status 'ehFavorito' alternar.
+POST {{host}}/v1/fotos/8e3b6600-093e-4dba-96e3-74f851cdb345/favoritar
+Accept: application/json
+
+###
+###
+# @name Adicionar Rótulo a uma Foto
+#
+# ANTES: Use os endpoints anteriores para pegar o ID de uma foto.
+POST {{host}}/v1/fotos/8e3b6600-093e-4dba-96e3-74f851cdb345/rotulos
+Content-Type: application/json
+
+{
+  "nomeDoRotulo": "HISTORIA"
+}
+
+###
+# @name Remover Rótulo de uma Foto
+#
+# ANTES: Adicione o rótulo "HISTORIA" à foto usando o endpoint acima.
+DELETE {{host}}/v1/fotos/8e3b6600-093e-4dba-96e3-74f851cdb345/rotulos/historia
+Accept: application/json
+
+###
+###
+# @name Deletar uma Foto
+#
+# ANTES: Use o endpoint de upload para criar uma foto e pegue seu ID.
+# ATENÇÃO: Esta operação é permanente.
+DELETE {{host}}/v1/fotos/8e3b6600-093e-4dba-96e3-74f851cdb345
+Accept: application/json
+
+###s

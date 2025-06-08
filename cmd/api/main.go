@@ -25,6 +25,10 @@ import (
 	mbApp "github.com/luiszkm/wedding_backend/internal/messageboard/application"
 	mbInfra "github.com/luiszkm/wedding_backend/internal/messageboard/infrastructure"
 	mbREST "github.com/luiszkm/wedding_backend/internal/messageboard/interfaces/rest"
+
+	galleryApp "github.com/luiszkm/wedding_backend/internal/gallery/application"
+	galleryInfra "github.com/luiszkm/wedding_backend/internal/gallery/infrastructure"
+	galleryREST "github.com/luiszkm/wedding_backend/internal/gallery/interfaces/rest"
 )
 
 func main() {
@@ -60,14 +64,20 @@ func main() {
 	presenteRepo := giftInfra.NewPostgresPresenteRepository(dbpool)
 	selecaoRepo := giftInfra.NewPostgresSelecaoRepository(dbpool) // Novo repo
 	recadoRepo := mbInfra.NewPostgresRecadoRepository(dbpool)
+	fotoRepo := galleryInfra.NewPostgresFotoRepository(dbpool)
+
 	// --- Serviços de Aplicação ---
 	guestService := guestApp.NewGuestService(guestRepo)
 	presenteService := giftApp.NewGiftService(presenteRepo, selecaoRepo) // Injetando novo repo
 	recadoService := mbApp.NewMessageBoardService(recadoRepo, guestRepo)
+	galleryService := galleryApp.NewGalleryService(fotoRepo, storageSvc)
+
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
 	presenteHandler := giftREST.NewGiftHandler(presenteService, storageSvc)
 	recadoHandler := mbREST.NewMessageBoardHandler(recadoService)
+	galleryHandler := galleryREST.NewGalleryHandler(galleryService)
+
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -92,7 +102,14 @@ func main() {
 		r.Post("/recados", recadoHandler.HandleDeixarRecado)
 		r.Get("/casamentos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)
 		r.Patch("/recados/{idRecado}", recadoHandler.HandleModerarRecado)
-		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos) // Nova rota
+		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
+		// rota de Galeria
+		r.Post("/casamentos/{idCasamento}/fotos", galleryHandler.HandleFazerUpload)
+		r.Get("/casamentos/{idCasamento}/fotos/publico", galleryHandler.HandleListarFotosPublicas)
+		r.Post("/fotos/{idFoto}/favoritar", galleryHandler.HandleAlternarFavorito)
+		r.Post("/fotos/{idFoto}/rotulos", galleryHandler.HandleAdicionarRotulo)
+		r.Delete("/fotos/{idFoto}/rotulos/{nomeDoRotulo}", galleryHandler.HandleRemoverRotulo)
+		r.Delete("/fotos/{idFoto}", galleryHandler.HandleDeletarFoto)
 
 	})
 

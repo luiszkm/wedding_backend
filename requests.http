@@ -353,3 +353,40 @@ Content-Type: application/json
 }
 
 ###
+
+###
+# @name Iniciar Nova Assinatura
+#
+# ANTES DE RODAR:
+# 1. Execute a requisição "Login de Usuário" PRIMEIRO. A extensão
+#    REST Client irá salvar o cookie "accessToken" automaticamente.
+# 2. Em seguida, execute esta requisição SEM o cabeçalho Authorization.
+#
+POST {{host}}/v1/assinaturas
+Content-Type: application/json
+
+{
+  "idPlano": "a1a1a1a1-1111-1111-1111-111111111111"
+}
+
+###
+# @name Tentar Iniciar Assinatura Sem Token
+# Tenta acessar a rota de assinaturas sem um token de autenticação.
+# Deve retornar um erro 401 Unauthorized.
+POST {{host}}/v1/assinaturas
+Content-Type: application/json
+
+{
+  "idPlano": "a1a1a1a1-1111-1111-1111-111111111111"
+}
+
+###
+
+###
+# @name Tentar Iniciar Assinatura Sem Token
+# Tenta acessar a rota de assinaturas sem um token de autenticação.
+# Deve retornar um erro 401 Unauthorized.
+GET {{host}}/v1/planos
+Content-Type: application/json
+
+###

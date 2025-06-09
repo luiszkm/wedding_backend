@@ -38,6 +38,10 @@ import (
 	eventApp "github.com/luiszkm/wedding_backend/internal/event/application"
 	eventInfra "github.com/luiszkm/wedding_backend/internal/event/infrastructure"
 	eventREST "github.com/luiszkm/wedding_backend/internal/event/interfaces/rest"
+
+	billingApp "github.com/luiszkm/wedding_backend/internal/billing/application"
+	billingInfra "github.com/luiszkm/wedding_backend/internal/billing/infrastructure"
+	billingREST "github.com/luiszkm/wedding_backend/internal/billing/interfaces/rest"
 )
 
 func main() {
@@ -80,6 +84,8 @@ func main() {
 	fotoRepo := galleryInfra.NewPostgresFotoRepository(dbpool)
 	usuarioRepo := iamInfra.NewPostgresUsuarioRepository(dbpool)
 	eventRepo := eventInfra.NewPostgresEventoRepository(dbpool)
+	planoRepo := billingInfra.NewPostgresPlanoRepository(dbpool)
+	billingRepo := billingInfra.NewPostgresAssinaturaRepository(dbpool)
 
 	// --- Serviços de Aplicação ---
 	guestService := guestApp.NewGuestService(guestRepo)
@@ -88,6 +94,7 @@ func main() {
 	galleryService := galleryApp.NewGalleryService(fotoRepo, storageSvc)
 	iamService := iamApp.NewIAMService(usuarioRepo, jwtService)
 	eventService := eventApp.NewEventService(eventRepo)
+	billingService := billingApp.NewBillingService(planoRepo, billingRepo)
 
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
@@ -96,6 +103,7 @@ func main() {
 	galleryHandler := galleryREST.NewGalleryHandler(galleryService)
 	iamHandler := iamREST.NewIAMHandler(iamService)
 	eventHandler := eventREST.NewEventHandler(eventService)
+	billingHandler := billingREST.NewBillingHandler(billingService)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
@@ -110,6 +118,7 @@ func main() {
 		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
 		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
+		r.Get("/planos", billingHandler.HandleListarPlanos) // Nova rota pública
 
 		// ... outras rotas públicas
 		// --- Rotas Protegidas ---
@@ -137,6 +146,8 @@ func main() {
 
 			// rotas de eventos
 			r.Post("/eventos", eventHandler.HandleCriarEvento)
+			r.Post("/assinaturas", billingHandler.HandleCriarAssinatura)
+
 			// r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)
 			// r.Get("/eventos", eventHandler.HandleListarEventosPorUsuario)
 

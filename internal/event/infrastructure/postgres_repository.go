@@ -41,11 +41,24 @@ func (r *PostgresEventoRepository) Save(ctx context.Context, evento *domain.Even
 	return nil
 }
 
-// Implementação do FindBySlug (exemplo)
 func (r *PostgresEventoRepository) FindBySlug(ctx context.Context, slug string) (*domain.Evento, error) {
-	// A implementação seria uma query SELECT... WHERE url_slug = $1
-	// Por enquanto, podemos deixar um placeholder.
-	return nil, fmt.Errorf("FindBySlug não implementado")
+	sql := `SELECT id, id_usuario, nome, data, tipo, url_slug FROM eventos WHERE url_slug = $1`
+	row := r.db.QueryRow(ctx, sql, slug)
+
+	var id, idUsuario uuid.UUID
+	var nome, tipo, urlSlug string
+	var data time.Time
+	err := row.Scan(&id, &idUsuario, &nome, &data, &tipo, &urlSlug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrEventoNaoEncontrado
+		}
+		return nil, fmt.Errorf("falha ao buscar evento por slug: %w", err)
+	}
+
+	// Usariamos uma função Hydrate aqui, similar aos outros contextos
+	return domain.HydrateEvento(id, idUsuario, nome, data, domain.TipoEvento(tipo), urlSlug), nil
+
 }
 func (r *PostgresEventoRepository) FindByID(ctx context.Context, userID, eventID uuid.UUID) (*domain.Evento, error) {
 	sql := `SELECT id, id_usuario, nome, data, tipo, url_slug FROM eventos WHERE id = $1 AND id_usuario = $2`

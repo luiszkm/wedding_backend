@@ -21,6 +21,8 @@ const (
 var (
 	ErrEventoNaoEncontrado = errors.New("evento não encontrado")
 	ErrTipoEventoInvalido  = errors.New("tipo de evento inválido")
+	ErrSlugEmUso           = errors.New("a URL amigável (slug) já está em uso")
+	ErrEventoJaExiste      = errors.New("evento já existe")
 )
 
 func (t TipoEvento) IsValid() bool {

@@ -1,4 +1,4 @@
--- file: db/init/01-init.sql
+-- file: db/init/01-init.sql - VERSÃO CORRIGIDA
 
 -- =================================================================
 -- TIPOS ENUM GERAIS
@@ -9,7 +9,7 @@ CREATE TYPE status_presente AS ENUM ('DISPONIVEL', 'SELECIONADO');
 CREATE TYPE status_recado AS ENUM ('PENDENTE', 'APROVADO', 'REJEITADO');
 CREATE TYPE nome_rotulo_enum AS ENUM ('MAIN', 'CASAMENTO', 'LUADEMEL', 'HISTORIA', 'FAMILIA', 'OUTROS');
 CREATE TYPE status_assinatura AS ENUM ('PENDENTE', 'ATIVA', 'EXPIRADA', 'CANCELADA');
-CREATE TYPE tipo_evento AS ENUM ('CASAMENTO', 'ANIVERSARIO', 'CHA_DE_BEBE', 'OUTRO'); -- Novo tipo para eventos
+CREATE TYPE tipo_evento AS ENUM ('CASAMENTO', 'ANIVERSARIO', 'CHA_DE_BEBE', 'OUTRO');
 
 
 -- =================================================================
@@ -17,7 +17,7 @@ CREATE TYPE tipo_evento AS ENUM ('CASAMENTO', 'ANIVERSARIO', 'CHA_DE_BEBE', 'OUT
 -- =================================================================
 
 CREATE TABLE usuarios (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     nome VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     telefone VARCHAR(20),
@@ -26,15 +26,16 @@ CREATE TABLE usuarios (
 );
 
 CREATE TABLE planos (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     nome VARCHAR(100) NOT NULL UNIQUE,
     preco_em_centavos INTEGER NOT NULL,
     numero_maximo_eventos INTEGER NOT NULL,
-    duracao_em_dias INTEGER NOT NULL
+    duracao_em_dias INTEGER NOT NULL,
+    id_stripe_price VARCHAR(255) NOT NULL UNIQUE
 );
 
 CREATE TABLE assinaturas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     id_usuario UUID NOT NULL REFERENCES usuarios(id),
     id_plano UUID NOT NULL REFERENCES planos(id),
     data_inicio TIMESTAMP WITH TIME ZONE,
@@ -42,9 +43,8 @@ CREATE TABLE assinaturas (
     status status_assinatura NOT NULL DEFAULT 'PENDENTE'
 );
 
--- Tabela 'casamentos' foi renomeada para 'eventos' e ganhou a coluna 'tipo'
 CREATE TABLE eventos (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     id_usuario UUID NOT NULL REFERENCES usuarios(id),
     nome VARCHAR(255) NOT NULL,
     data DATE,
@@ -56,10 +56,8 @@ CREATE TABLE eventos (
 
 -- =================================================================
 -- TABELAS DE EVENTO (V1, V2, V3)
--- (Chaves estrangeiras atualizadas para apontar para 'eventos')
 -- =================================================================
 
--- Tabela 'grupos_de_convidados' agora se chama 'convidados_grupos' e aponta para 'eventos'
 CREATE TABLE convidados_grupos (
     id UUID PRIMARY KEY,
     id_evento UUID NOT NULL REFERENCES eventos(id) ON DELETE CASCADE,

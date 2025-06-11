@@ -13,6 +13,8 @@ require (
 
 require github.com/golang-jwt/jwt/v5 v5.2.2
 
+require github.com/stripe/stripe-go/v79 v79.12.0
+
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.10 // indirect

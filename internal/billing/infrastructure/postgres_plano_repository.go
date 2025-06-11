@@ -23,7 +23,7 @@ func NewPostgresPlanoRepository(db *pgxpool.Pool) domain.PlanoRepository {
 func (r *PostgresPlanoRepository) ListAll(ctx context.Context) ([]*domain.Plano, error) {
 	// Query para buscar todos os planos, ordenados pelo preço do mais barato ao mais caro.
 	sql := `
-		SELECT id, nome, preco_em_centavos, numero_maximo_eventos, duracao_em_dias 
+		SELECT id, nome, preco_em_centavos, numero_maximo_eventos, duracao_em_dias, id_stripe_price 
 		FROM planos 
 		ORDER BY preco_em_centavos ASC;
 	`
@@ -38,12 +38,12 @@ func (r *PostgresPlanoRepository) ListAll(ctx context.Context) ([]*domain.Plano,
 		var id uuid.UUID
 		var nome string
 		var preco, eventos, dias int
+		var idStripe string
 
-		if err := rows.Scan(&id, &nome, &preco, &eventos, &dias); err != nil {
+		if err := rows.Scan(&id, &nome, &preco, &eventos, &dias, &idStripe); err != nil { // <-- scan do novo campo
 			return nil, fmt.Errorf("falha ao escanear linha de plano: %w", err)
 		}
-
-		plano := domain.HydratePlano(id, nome, preco, eventos, dias)
+		plano := domain.HydratePlano(id, nome, idStripe, preco, eventos, dias)
 		planos = append(planos, plano)
 	}
 
@@ -55,14 +55,14 @@ func (r *PostgresPlanoRepository) ListAll(ctx context.Context) ([]*domain.Plano,
 }
 
 func (r *PostgresPlanoRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Plano, error) {
-	sql := `SELECT id, nome, preco_em_centavos, numero_maximo_eventos, duracao_em_dias FROM planos WHERE id = $1`
+	sql := `SELECT id, nome, preco_em_centavos, numero_maximo_eventos, duracao_em_dias, id_stripe_price FROM planos WHERE id = $1`
 	row := r.db.QueryRow(ctx, sql, id)
 
 	var planoID uuid.UUID
-	var nome string
+	var nome, idStripe string
 	var preco, eventos, dias int
 
-	err := row.Scan(&planoID, &nome, &preco, &eventos, &dias)
+	err := row.Scan(&planoID, &nome, &preco, &eventos, &dias, &idStripe)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrPlanoNaoEncontrado
@@ -70,5 +70,5 @@ func (r *PostgresPlanoRepository) FindByID(ctx context.Context, id uuid.UUID) (*
 		return nil, fmt.Errorf("falha ao buscar plano por id: %w", err)
 	}
 
-	return domain.HydratePlano(planoID, nome, preco, eventos, dias), nil
+	return domain.HydratePlano(planoID, nome, idStripe, preco, eventos, dias), nil
 }

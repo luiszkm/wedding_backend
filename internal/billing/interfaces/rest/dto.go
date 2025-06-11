@@ -17,4 +17,5 @@ type CriarAssinaturaRequestDTO struct {
 type CriarAssinaturaResponseDTO struct {
 	IDAssinatura string `json:"idAssinatura"`
 	Status       string `json:"status"`
+	CheckoutURL  string `json:"checkoutUrl"`
 }

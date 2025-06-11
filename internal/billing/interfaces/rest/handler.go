@@ -4,22 +4,30 @@ package rest
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/google/uuid"
 	"github.com/luiszkm/wedding_backend/internal/billing/application"
 	"github.com/luiszkm/wedding_backend/internal/billing/domain"
 	"github.com/luiszkm/wedding_backend/internal/platform/auth"
 	"github.com/luiszkm/wedding_backend/internal/platform/web"
+	"github.com/stripe/stripe-go/v79"
+	"github.com/stripe/stripe-go/v79/webhook"
 )
 
 type BillingHandler struct {
-	service *application.BillingService
+	service       *application.BillingService
+	webhookSecret string
 }
 
-func NewBillingHandler(service *application.BillingService) *BillingHandler {
-	return &BillingHandler{service: service}
+func NewBillingHandler(service *application.BillingService, webhookSecret string) *BillingHandler {
+	return &BillingHandler{
+		service:       service,
+		webhookSecret: webhookSecret,
+	}
 }
 
 func (h *BillingHandler) HandleListarPlanos(w http.ResponseWriter, r *http.Request) {
@@ -66,7 +74,7 @@ func (h *BillingHandler) HandleCriarAssinatura(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	novaAssinatura, err := h.service.IniciarNovaAssinatura(r.Context(), userID, planoID)
+	checkoutURL, novaAssinatura, err := h.service.IniciarNovaAssinatura(r.Context(), userID, planoID)
 	if err != nil {
 		if errors.Is(err, domain.ErrPlanoNaoEncontrado) {
 			web.RespondError(w, r, "PLANO_NAO_ENCONTRADO", err.Error(), http.StatusNotFound)
@@ -80,8 +88,71 @@ func (h *BillingHandler) HandleCriarAssinatura(w http.ResponseWriter, r *http.Re
 	respDTO := CriarAssinaturaResponseDTO{
 		IDAssinatura: novaAssinatura.ID().String(),
 		Status:       string(novaAssinatura.Status()),
+		CheckoutURL:  checkoutURL,
 	}
 
 	// Conforme a documentação, retornamos 202 Accepted.
 	web.Respond(w, r, respDTO, http.StatusAccepted)
+}
+
+var webhookSecret = os.Getenv("STRIPE_WEBHOOK_SECRET")
+
+func (h *BillingHandler) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
+	const MaxBodyBytes = int64(65536)
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBodyBytes)
+
+	payload, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("ERRO ao ler o corpo do webhook: %v", err)
+		// Não podemos processar, mas não é culpa da Stripe. Não retornamos erro aqui.
+		// Apenas logamos e saímos. Um status 200 implícito será enviado.
+		return
+	}
+
+	signatureHeader := r.Header.Get("Stripe-Signature")
+
+	// Usa o segredo injetado na struct do handler
+	event, err := webhook.ConstructEvent(payload, signatureHeader, h.webhookSecret)
+	if err != nil {
+		log.Printf("ERRO na verificação da assinatura do webhook: %v", err)
+		// A assinatura é inválida, requisição maliciosa ou mal configurada. Rejeitamos.
+		web.RespondError(w, r, "ASSINATURA_INVALIDA", "Assinatura do webhook inválida.", http.StatusBadRequest)
+		return
+	}
+
+	// Processa apenas os eventos que nos interessam.
+	switch event.Type {
+	case "checkout.session.completed":
+		var session stripe.CheckoutSession
+		if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
+			log.Printf("ERRO ao decodificar o objeto da sessão de checkout: %v", err)
+			// O evento está malformado, não adianta a Stripe reenviar. Respondemos OK.
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Usamos o ClientReferenceID, que é o nosso ID de assinatura.
+		assinaturaID, err := uuid.Parse(session.ClientReferenceID)
+		if err != nil {
+			log.Printf("ERRO: ClientReferenceID inválido no evento da Stripe: %v", err)
+			w.WriteHeader(http.StatusOK) // Mesmo caso do anterior.
+			return
+		}
+
+		// Chama nosso serviço de aplicação para finalizar o processo.
+		if err := h.service.AtivarAssinatura(r.Context(), assinaturaID); err != nil {
+			log.Printf("ERRO ao ativar assinatura %s: %v", assinaturaID, err)
+			// ESTE é um erro do nosso lado (ex: banco de dados).
+			// Retornamos 500 para que a Stripe tente reenviar o webhook mais tarde.
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+	default:
+		log.Printf("Evento de webhook não tratado recebido: %s", event.Type)
+	}
+
+	// Para todos os eventos recebidos com sucesso (mesmo os não tratados),
+	// respondemos 200 OK para a Stripe.
+	w.WriteHeader(http.StatusOK)
 }

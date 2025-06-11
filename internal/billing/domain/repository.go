@@ -15,4 +15,6 @@ type PlanoRepository interface {
 
 type AssinaturaRepository interface {
 	Save(ctx context.Context, assinatura *Assinatura) error
+	FindByID(ctx context.Context, id uuid.UUID) (*Assinatura, error) // <-- NOVO
+	Update(ctx context.Context, assinatura *Assinatura) error
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	"github.com/stripe/stripe-go/v79"
 
 	guestApp "github.com/luiszkm/wedding_backend/internal/guest/application"
 	guestInfra "github.com/luiszkm/wedding_backend/internal/guest/infrastructure"
@@ -58,7 +59,10 @@ func main() {
 	publicURL := os.Getenv("R2_PUBLIC_URL")
 	dbURL := os.Getenv("DATABASE_URL")
 	jwtSecret := os.Getenv("JWT_SECRET")
-
+	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
+	// Lemos o segredo do webhook aqui, uma única vez.
+	stripeWebhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	dbpool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Incapaz de conectar ao banco de dados: %v\n", err)
@@ -74,6 +78,8 @@ func main() {
 	}
 	// --- Inicialização dos Serviços ---
 	jwtService := auth.NewJWTService(jwtSecret)
+	paymentGateway := billingInfra.NewStripeGateway()
+
 	// ...
 
 	// --- Repositórios ---
@@ -94,7 +100,7 @@ func main() {
 	galleryService := galleryApp.NewGalleryService(fotoRepo, storageSvc)
 	iamService := iamApp.NewIAMService(usuarioRepo, jwtService)
 	eventService := eventApp.NewEventService(eventRepo)
-	billingService := billingApp.NewBillingService(planoRepo, billingRepo)
+	billingService := billingApp.NewBillingService(planoRepo, billingRepo, paymentGateway)
 
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
@@ -103,7 +109,7 @@ func main() {
 	galleryHandler := galleryREST.NewGalleryHandler(galleryService)
 	iamHandler := iamREST.NewIAMHandler(iamService)
 	eventHandler := eventREST.NewEventHandler(eventService)
-	billingHandler := billingREST.NewBillingHandler(billingService)
+	billingHandler := billingREST.NewBillingHandler(billingService, stripeWebhookSecret)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
@@ -118,7 +124,8 @@ func main() {
 		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
 		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
-		r.Get("/planos", billingHandler.HandleListarPlanos) // Nova rota pública
+		r.Get("/planos", billingHandler.HandleListarPlanos)            // Nova rota pública
+		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook) // <-- Rota do Webhook
 
 		// ... outras rotas públicas
 		// --- Rotas Protegidas ---

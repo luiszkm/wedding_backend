@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/luiszkm/wedding_backend/internal/iam/application"
@@ -61,6 +62,7 @@ func (h *IAMHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao processar login.", http.StatusInternalServerError)
 		return
 	}
+	isSecure := os.Getenv("APP_ENV") == "production"
 
 	// --- LÓGICA DE COOKIE ---
 
@@ -73,7 +75,7 @@ func (h *IAMHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Value:    token,
 		Expires:  expirationTime,
 		HttpOnly: true,                 // <-- Impede o acesso via JavaScript (proteção XSS)
-		Secure:   true,                 // <-- Envia o cookie apenas sobre HTTPS (use 'false' apenas em localhost sem TLS)
+		Secure:   isSecure,             // <-- Envia o cookie apenas sobre HTTPS (use 'false' apenas em localhost sem TLS)
 		SameSite: http.SameSiteLaxMode, // <-- Proteção contra CSRF
 		Path:     "/",                  // O cookie será válido para todo o site
 	})

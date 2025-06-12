@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/luiszkm/wedding_backend/internal/billing/application"
@@ -104,46 +105,82 @@ func (h *BillingHandler) HandleStripeWebhook(w http.ResponseWriter, r *http.Requ
 	payload, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("ERRO ao ler o corpo do webhook: %v", err)
-		// Não podemos processar, mas não é culpa da Stripe. Não retornamos erro aqui.
-		// Apenas logamos e saímos. Um status 200 implícito será enviado.
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
 	signatureHeader := r.Header.Get("Stripe-Signature")
-
-	// Usa o segredo injetado na struct do handler
 	event, err := webhook.ConstructEvent(payload, signatureHeader, h.webhookSecret)
 	if err != nil {
 		log.Printf("ERRO na verificação da assinatura do webhook: %v", err)
-		// A assinatura é inválida, requisição maliciosa ou mal configurada. Rejeitamos.
 		web.RespondError(w, r, "ASSINATURA_INVALIDA", "Assinatura do webhook inválida.", http.StatusBadRequest)
 		return
 	}
 
-	// Processa apenas os eventos que nos interessam.
+	// Processa os eventos que nos interessam.
 	switch event.Type {
 	case "checkout.session.completed":
 		var session stripe.CheckoutSession
 		if err := json.Unmarshal(event.Data.Raw, &session); err != nil {
-			log.Printf("ERRO ao decodificar o objeto da sessão de checkout: %v", err)
-			// O evento está malformado, não adianta a Stripe reenviar. Respondemos OK.
+			log.Printf("ERRO ao decodificar o objeto da sessão: %v", err)
+			w.WriteHeader(http.StatusOK) // Responde OK para a Stripe não reenviar
+			return
+		}
+
+		if session.Subscription == nil {
+			log.Printf("ERRO: evento checkout.session.completed sem dados de assinatura")
 			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// Usamos o ClientReferenceID, que é o nosso ID de assinatura.
+		// Usamos o ClientReferenceID, que é o nosso ID de assinatura (UUID).
 		assinaturaID, err := uuid.Parse(session.ClientReferenceID)
 		if err != nil {
 			log.Printf("ERRO: ClientReferenceID inválido no evento da Stripe: %v", err)
-			w.WriteHeader(http.StatusOK) // Mesmo caso do anterior.
+			w.WriteHeader(http.StatusOK)
 			return
 		}
 
-		// Chama nosso serviço de aplicação para finalizar o processo.
-		if err := h.service.AtivarAssinatura(r.Context(), assinaturaID); err != nil {
+		// E pegamos o ID da assinatura da Stripe (string 'sub_...').
+		stripeSubscriptionID := session.Subscription.ID
+
+		// Chama nosso serviço de aplicação para finalizar o processo de ativação.
+		if err := h.service.AtivarAssinatura(r.Context(), assinaturaID, stripeSubscriptionID); err != nil {
 			log.Printf("ERRO ao ativar assinatura %s: %v", assinaturaID, err)
-			// ESTE é um erro do nosso lado (ex: banco de dados).
-			// Retornamos 500 para que a Stripe tente reenviar o webhook mais tarde.
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+	case "invoice.payment_succeeded":
+		var invoice stripe.Invoice
+		if err := json.Unmarshal(event.Data.Raw, &invoice); err != nil {
+			log.Printf("ERRO ao decodificar o objeto de fatura: %v", err)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Verificamos se o pagamento é para um ciclo de assinatura (renovação)
+		if invoice.BillingReason == stripe.InvoiceBillingReasonSubscriptionCycle {
+			stripeSubID := invoice.ID
+			// A fatura nos dá o novo final do período.
+			novoFimPeriodo := time.Unix(invoice.PeriodEnd, 0)
+			if err := h.service.RenovarAssinatura(r.Context(), stripeSubID, novoFimPeriodo); err != nil {
+				log.Printf("ERRO ao renovar assinatura %s: %v", stripeSubID, err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+
+	case "customer.subscription.deleted":
+		var subscription stripe.Subscription
+		if err := json.Unmarshal(event.Data.Raw, &subscription); err != nil {
+			log.Printf("ERRO ao decodificar o objeto de assinatura (delete): %v", err)
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if err := h.service.CancelarAssinatura(r.Context(), subscription.ID); err != nil {
+			log.Printf("ERRO ao cancelar assinatura %s: %v", subscription.ID, err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -152,7 +189,7 @@ func (h *BillingHandler) HandleStripeWebhook(w http.ResponseWriter, r *http.Requ
 		log.Printf("Evento de webhook não tratado recebido: %s", event.Type)
 	}
 
-	// Para todos os eventos recebidos com sucesso (mesmo os não tratados),
+	// Para todos os eventos processados com sucesso (ou não tratados),
 	// respondemos 200 OK para a Stripe.
 	w.WriteHeader(http.StatusOK)
 }

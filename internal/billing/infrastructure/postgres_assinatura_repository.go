@@ -17,25 +17,24 @@ type PostgresAssinaturaRepository struct {
 	db *pgxpool.Pool
 }
 
-// FindByID implements domain.AssinaturaRepository.
-func (r *PostgresAssinaturaRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Assinatura, error) {
-	sql := `SELECT id, id_usuario, id_plano, data_inicio, data_fim, status FROM assinaturas WHERE id = $1`
-	row := r.db.QueryRow(ctx, sql, id)
+// FindByStripeSubscriptionID implements domain.AssinaturaRepository.
+func (r *PostgresAssinaturaRepository) FindByStripeSubscriptionID(ctx context.Context, stripeID string) (*domain.Assinatura, error) {
+	sql := `SELECT id, id_usuario, id_plano, id_stripe_subscription, data_inicio, data_fim, status FROM assinaturas WHERE id_stripe_subscription = $1`
+	row := r.db.QueryRow(ctx, sql, stripeID)
 
 	var assinaturaID, usuarioID, planoID uuid.UUID
-	// Usamos ponteiros para time.Time para lidar com valores NULOS no banco de dados.
+	var idStripeSub string
 	var dataInicio, dataFim *time.Time
 	var status domain.StatusAssinatura
 
-	err := row.Scan(&assinaturaID, &usuarioID, &planoID, &dataInicio, &dataFim, &status)
+	err := row.Scan(&assinaturaID, &usuarioID, &planoID, &idStripeSub, &dataInicio, &dataFim, &status)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrAssinaturaNaoEncontrada
 		}
-		return nil, fmt.Errorf("falha ao escanear assinatura por id: %w", err)
+		return nil, fmt.Errorf("falha ao escanear assinatura por id stripe: %w", err)
 	}
 
-	// Converte os ponteiros para valores, tratando o caso de serem nulos.
 	var di, df time.Time
 	if dataInicio != nil {
 		di = *dataInicio
@@ -44,7 +43,40 @@ func (r *PostgresAssinaturaRepository) FindByID(ctx context.Context, id uuid.UUI
 		df = *dataFim
 	}
 
-	return domain.HydrateAssinatura(assinaturaID, usuarioID, planoID, di, df, status), nil
+	return domain.HydrateAssinatura(assinaturaID, usuarioID, planoID, idStripeSub, di, df, status), nil
+}
+
+// FindByID implements domain.AssinaturaRepository.
+func (r *PostgresAssinaturaRepository) FindByID(ctx context.Context, id uuid.UUID) (*domain.Assinatura, error) {
+	sql := `SELECT id, id_usuario, id_plano, id_stripe_subscription, data_inicio, data_fim, status FROM assinaturas WHERE id = $1`
+	row := r.db.QueryRow(ctx, sql, id)
+
+	var assinaturaID, usuarioID, planoID uuid.UUID
+	var idStripeSub *string // Usamos ponteiros para campos que podem ser nulos
+	var dataInicio, dataFim *time.Time
+	var status domain.StatusAssinatura
+
+	err := row.Scan(&assinaturaID, &usuarioID, &planoID, &idStripeSub, &dataInicio, &dataFim, &status)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrAssinaturaNaoEncontrada
+		}
+		return nil, fmt.Errorf("falha ao escanear assinatura por id: %w", err)
+	}
+
+	var di, df time.Time
+	var stripeSubID string
+	if dataInicio != nil {
+		di = *dataInicio
+	}
+	if dataFim != nil {
+		df = *dataFim
+	}
+	if idStripeSub != nil {
+		stripeSubID = *idStripeSub
+	}
+
+	return domain.HydrateAssinatura(assinaturaID, usuarioID, planoID, stripeSubID, di, df, status), nil
 }
 
 // Update implements domain.AssinaturaRepository.

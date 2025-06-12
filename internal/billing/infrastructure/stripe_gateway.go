@@ -4,8 +4,10 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/luiszkm/wedding_backend/internal/billing/domain" // Ajuste o path
+	"github.com/stripe/stripe-go/sub"
 	"github.com/stripe/stripe-go/v82"
 	"github.com/stripe/stripe-go/v82/client"
 )
@@ -41,4 +43,20 @@ func (sg *StripeGateway) CriarSessaoCheckout(ctx context.Context, assinatura *do
 
 	return sess.URL, nil
 
+}
+
+func (sg *StripeGateway) GetSubscriptionDetails(ctx context.Context, stripeSubscriptionID string) (*domain.SubscriptionDetails, error) {
+	s, err := sub.Get(stripeSubscriptionID, nil)
+	if err != nil {
+		return nil, fmt.Errorf("infra: falha ao buscar detalhes da assinatura na stripe: %w", err)
+	}
+
+	// Mapeia os dados da Stripe para a nossa struct de domínio.
+	details := &domain.SubscriptionDetails{
+		ID:                 s.ID,
+		CurrentPeriodStart: time.Unix(s.CurrentPeriodStart, 0),
+		CurrentPeriodEnd:   time.Unix(s.CurrentPeriodEnd, 0),
+	}
+
+	return details, nil
 }

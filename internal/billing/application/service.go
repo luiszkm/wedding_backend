@@ -58,35 +58,67 @@ func (s *BillingService) IniciarNovaAssinatura(ctx context.Context, userID, plan
 	return checkoutURL, novaAssinatura, nil
 }
 
-func (s *BillingService) AtivarAssinatura(ctx context.Context, assinaturaID uuid.UUID) error {
-	// 1. Busca a assinatura em nosso banco de dados.
+func (s *BillingService) AtivarAssinatura(ctx context.Context, assinaturaID uuid.UUID, stripeSubscriptionID string) error {
+	// 1. Busca os detalhes da assinatura no gateway de pagamento para obter as datas corretas.
+	details, err := s.gateway.GetSubscriptionDetails(ctx, stripeSubscriptionID)
+	if err != nil {
+		return fmt.Errorf("falha ao obter detalhes do gateway de pagamento: %w", err)
+	}
+
+	// 2. Busca nossa assinatura interna no nosso banco.
 	assinatura, err := s.assinaturaRepo.FindByID(ctx, assinaturaID)
 	if err != nil {
 		return fmt.Errorf("falha ao buscar assinatura para ativação: %w", err)
 	}
 
-	// 2. Validação de negócio: só ativamos se estiver pendente.
+	// 3. Validação de negócio: só ativamos se estiver pendente.
 	if assinatura.Status() != domain.StatusPendente {
 		log.Printf("Aviso: tentativa de ativar assinatura %s que já não está pendente.", assinaturaID)
-		return nil // Não é um erro, apenas ignoramos.
+		return nil
 	}
 
-	// 3. Busca o plano para saber a duração
-	plano, err := s.planoRepo.FindByID(ctx, assinatura.IDPlano())
-	if err != nil {
-		return fmt.Errorf("falha ao buscar plano da assinatura: %w", err)
-	}
+	// 4. Ativa a assinatura no nosso domínio com os dados obtidos.
+	assinatura.Ativar(details.ID, details.CurrentPeriodStart, details.CurrentPeriodEnd)
 
-	// 4. Define as datas e ativa a assinatura no nosso domínio.
-	dataInicio := time.Now()
-	dataFim := dataInicio.AddDate(0, 0, plano.DuracaoEmDias())
-	assinatura.Ativar(dataInicio, dataFim)
-
-	// 5. Salva o novo estado no banco de dados.
+	// 5. Salva o novo estado.
 	if err := s.assinaturaRepo.Update(ctx, assinatura); err != nil {
 		return fmt.Errorf("falha ao atualizar assinatura para ativa: %w", err)
 	}
 
-	log.Printf("Assinatura %s ativada com sucesso. Válida até %s", assinatura.ID(), dataFim.Format("02/01/2006"))
+	log.Printf("Assinatura %s ativada com sucesso. Válida até %s", assinatura.ID(), details.CurrentPeriodEnd.Format("02/01/2006"))
+	return nil
+}
+
+// RenovarAssinatura atualiza a data de fim de uma assinatura após um pagamento de renovação.
+func (s *BillingService) RenovarAssinatura(ctx context.Context, stripeSubID string, novoFimPeriodo time.Time) error {
+	assinatura, err := s.assinaturaRepo.FindByStripeSubscriptionID(ctx, stripeSubID)
+	if err != nil {
+		return fmt.Errorf("assinatura com id stripe %s não encontrada para renovação: %w", stripeSubID, err)
+	}
+
+	assinatura.Renovar(novoFimPeriodo)
+
+	if err := s.assinaturaRepo.Update(ctx, assinatura); err != nil {
+		return fmt.Errorf("falha ao renovar assinatura: %w", err)
+	}
+
+	log.Printf("Assinatura com ID Stripe %s renovada. Nova validade: %s", stripeSubID, novoFimPeriodo.Format("02/01/2006"))
+	return nil
+}
+
+// CancelarAssinatura atualiza o status de uma assinatura para CANCELADA.
+func (s *BillingService) CancelarAssinatura(ctx context.Context, stripeSubID string) error {
+	assinatura, err := s.assinaturaRepo.FindByStripeSubscriptionID(ctx, stripeSubID)
+	if err != nil {
+		return fmt.Errorf("assinatura com id stripe %s não encontrada para cancelamento: %w", stripeSubID, err)
+	}
+
+	assinatura.Cancelar()
+
+	if err := s.assinaturaRepo.Update(ctx, assinatura); err != nil {
+		return fmt.Errorf("falha ao cancelar assinatura: %w", err)
+	}
+
+	log.Printf("Assinatura com ID Stripe %s foi cancelada.", stripeSubID)
 	return nil
 }

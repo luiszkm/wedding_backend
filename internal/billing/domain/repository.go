@@ -16,5 +16,7 @@ type PlanoRepository interface {
 type AssinaturaRepository interface {
 	Save(ctx context.Context, assinatura *Assinatura) error
 	FindByID(ctx context.Context, id uuid.UUID) (*Assinatura, error) // <-- NOVO
+	FindByStripeSubscriptionID(ctx context.Context, stripeID string) (*Assinatura, error)
+
 	Update(ctx context.Context, assinatura *Assinatura) error
 }

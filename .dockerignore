@@ -1,0 +1,11 @@
+# Arquivo .dockerignore
+
+# Ignorar o diretório do Git
+.git
+.gitignore
+
+# Ignorar arquivos de configuração de ambiente local
+.env
+
+# Ignorar dependências do Node (se houver)
+node_modules

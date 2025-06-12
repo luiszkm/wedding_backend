@@ -1,8 +1,7 @@
-# file: docker-compose.yml
-
-version: '3.8'
+# file: docker-compose.yml - VERSÃO FINAL
 
 services:
+  # Serviço do banco de dados PostgreSQL (com melhoria de healthcheck)
   db:
     image: postgres:16-alpine
     container_name: wedding_db
@@ -13,15 +12,35 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      # Volume para persistir os dados do banco
       - postgres_data:/var/lib/postgresql/data
-      
-      # --- LINHA NOVA E IMPORTANTE ---
-      # Mapeia a pasta local de scripts para o diretório de inicialização do Postgres.
-      # O ":ro" no final significa "read-only" (apenas leitura), uma boa prática de segurança.
       - ./db/init:/docker-entrypoint-initdb.d:ro
-
     restart: unless-stopped
+    # Healthcheck garante que o banco esteja pronto antes que a API dependa dele.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d wedding_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
+  # --- NOVO SERVIÇO: NOSSA APLICAÇÃO GO ---
+  api:
+    container_name: wedding-api
+    # Em vez de 'image', usamos 'build' para instruir o Compose a usar nosso Dockerfile.
+    # O '.' indica que o Dockerfile está no mesmo diretório que este compose.yml.
+    build: .
+    ports:
+      - "3000:3000"
+    # Passa todas as variáveis do arquivo .env para o container da API.
+    # É assim que a API saberá a URL do banco, os segredos da Stripe, etc.
+    env_file:
+      - .env
+    # Garante que o serviço 'api' só será iniciado DEPOIS que o serviço 'db'
+    # estiver com o status 'healthy' (definido pelo healthcheck).
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+
+# Declaração do volume nomeado para persistência do banco de dados.
 volumes:
   postgres_data:

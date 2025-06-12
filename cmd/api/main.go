@@ -60,7 +60,6 @@ func main() {
 	dbURL := os.Getenv("DATABASE_URL")
 	jwtSecret := os.Getenv("JWT_SECRET")
 	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
-	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
 	// Lemos o segredo do webhook aqui, uma única vez.
 	stripeWebhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
 	dbpool, err := pgxpool.New(context.Background(), dbURL)
@@ -78,7 +77,7 @@ func main() {
 	}
 	// --- Inicialização dos Serviços ---
 	jwtService := auth.NewJWTService(jwtSecret)
-	paymentGateway := billingInfra.NewStripeGateway()
+	paymentGateway := billingInfra.NewStripeGateway(stripe.Key)
 
 	// ...
 

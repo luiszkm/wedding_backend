@@ -14,8 +14,8 @@ import (
 	"github.com/luiszkm/wedding_backend/internal/billing/domain"
 	"github.com/luiszkm/wedding_backend/internal/platform/auth"
 	"github.com/luiszkm/wedding_backend/internal/platform/web"
-	"github.com/stripe/stripe-go/v79"
-	"github.com/stripe/stripe-go/v79/webhook"
+	"github.com/stripe/stripe-go/v82"
+	"github.com/stripe/stripe-go/v82/webhook"
 )
 
 type BillingHandler struct {

@@ -6,18 +6,19 @@ import (
 	"fmt"
 
 	"github.com/luiszkm/wedding_backend/internal/billing/domain" // Ajuste o path
-	"github.com/stripe/stripe-go/v79"
-	"github.com/stripe/stripe-go/v79/checkout/session"
+	"github.com/stripe/stripe-go/v82"
+	"github.com/stripe/stripe-go/v82/client"
 )
 
 type StripeGateway struct {
-	// Poderia ter um cliente Stripe aqui, se necessário, mas a lib usa um global.
+	client *client.API
 }
 
-func NewStripeGateway() domain.PaymentGateway {
-	return &StripeGateway{}
+func NewStripeGateway(secretKey string) domain.PaymentGateway {
+	sc := &client.API{}
+	sc.Init(secretKey, nil)
+	return &StripeGateway{client: sc}
 }
-
 func (sg *StripeGateway) CriarSessaoCheckout(ctx context.Context, assinatura *domain.Assinatura, plano *domain.Plano) (string, error) {
 	// A lógica que estava no serviço agora vive aqui.
 	params := &stripe.CheckoutSessionParams{
@@ -33,10 +34,11 @@ func (sg *StripeGateway) CriarSessaoCheckout(ctx context.Context, assinatura *do
 		CancelURL:         stripe.String("http://localhost:8080/cancelado"),
 	}
 
-	sess, err := session.New(params)
+	sess, err := sg.client.CheckoutSessions.New(params)
 	if err != nil {
 		return "", fmt.Errorf("infra: falha ao criar a sessão de checkout da stripe: %w", err)
 	}
 
 	return sess.URL, nil
+
 }

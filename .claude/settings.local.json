@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go help:*)",
+      "Bash(mkdir:*)"
+    ],
+    "deny": []
+  }
+}

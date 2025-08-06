@@ -1,0 +1,100 @@
+# Testes de Presentes - Wedding API
+# Inclui testes para presentes integrais e fracionados (ADR-004)
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@authToken = {{authToken}}
+@eventoId = {{eventoId}}
+
+###
+
+# Criar presente integral
+POST {{baseUrl}}/eventos/{{eventoId}}/presentes
+Content-Type: multipart/form-data; boundary=boundary123
+Authorization: Bearer {{authToken}}
+
+--boundary123
+Content-Disposition: form-data; name="presente"
+Content-Type: application/json
+
+{
+  "nome": "Cafeteira Elétrica",
+  "descricao": "Cafeteira elétrica 12 xícaras",
+  "ehFavorito": false,
+  "categoria": "COZINHA",
+  "tipo": "INTEGRAL",
+  "detalhes": {
+    "tipo": "PRODUTO_EXTERNO",
+    "linkDaLoja": "https://exemplo.com/cafeteira"
+  }
+}
+--boundary123--
+
+> {%
+  client.global.set("presenteIntegralId", response.body.idPresente);
+%}
+
+###
+
+# Criar presente fracionado
+POST {{baseUrl}}/eventos/{{eventoId}}/presentes
+Content-Type: multipart/form-data; boundary=boundary456
+Authorization: Bearer {{authToken}}
+
+--boundary456
+Content-Disposition: form-data; name="presente"
+Content-Type: application/json
+
+{
+  "nome": "Geladeira Frost Free",
+  "descricao": "Geladeira 2 portas 400L",
+  "ehFavorito": true,
+  "categoria": "COZINHA", 
+  "tipo": "FRACIONADO",
+  "valorTotal": 2500.00,
+  "numeroCotas": 10,
+  "detalhes": {
+    "tipo": "PRODUTO_EXTERNO",
+    "linkDaLoja": "https://exemplo.com/geladeira"
+  }
+}
+--boundary456--
+
+> {%
+  client.global.set("presenteFracionadoId", response.body.idPresente);
+%}
+
+###
+
+# Listar presentes públicos
+GET {{baseUrl}}/eventos/{{eventoId}}/presentes-publico
+
+###
+
+# Criar presente fracionado com mais cotas (para testes)
+POST {{baseUrl}}/eventos/{{eventoId}}/presentes
+Content-Type: multipart/form-data; boundary=boundary789
+Authorization: Bearer {{authToken}}
+
+--boundary789
+Content-Disposition: form-data; name="presente"
+Content-Type: application/json
+
+{
+  "nome": "Sofá 3 Lugares",
+  "descricao": "Sofá retrátil e reclinável",
+  "ehFavorito": false,
+  "categoria": "SALA",
+  "tipo": "FRACIONADO", 
+  "valorTotal": 1800.00,
+  "numeroCotas": 6,
+  "detalhes": {
+    "tipo": "PRODUTO_EXTERNO",
+    "linkDaLoja": "https://exemplo.com/sofa"
+  }
+}
+--boundary789--
+
+> {%
+  client.global.set("sofaId", response.body.idPresente);
+%}

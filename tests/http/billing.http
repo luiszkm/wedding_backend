@@ -1,0 +1,46 @@
+# Testes de Cobrança - Wedding API
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@authToken = {{authToken}}
+
+###
+
+# Listar planos disponíveis (rota pública)
+GET {{baseUrl}}/planos
+
+###
+
+# Criar assinatura
+POST {{baseUrl}}/assinaturas
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "idPlano": "plan_basic_123", 
+  "metodoPagamento": "CARTAO"
+}
+
+> {%
+  client.global.set("assinaturaId", response.body.id);
+%}
+
+###
+
+# Webhook do Stripe (simulação - normalmente chamado pelo Stripe)
+POST {{baseUrl}}/webhooks/stripe
+Content-Type: application/json
+Stripe-Signature: whsec_test_signature
+
+{
+  "id": "evt_test_webhook",
+  "object": "event",
+  "type": "customer.subscription.created",
+  "data": {
+    "object": {
+      "id": "sub_test_123",
+      "status": "active",
+      "customer": "cus_test_123"
+    }
+  }
+}

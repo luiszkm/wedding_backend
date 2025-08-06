@@ -1,0 +1,67 @@
+# Testes de Comunicados - Wedding API (ADR-003)
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@authToken = {{authToken}}
+@eventoId = {{eventoId}}
+
+###
+
+# Criar comunicado
+POST {{baseUrl}}/eventos/{{eventoId}}/comunicados
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "titulo": "Lembrete Importante",
+  "mensagem": "A cerimônia começa às 19h em ponto. Por favor, cheguem com 30 minutos de antecedência para acomodação."
+}
+
+> {%
+  client.global.set("comunicadoId", response.body.id);
+%}
+
+###
+
+# Criar segundo comunicado
+POST {{baseUrl}}/eventos/{{eventoId}}/comunicados
+Content-Type: application/json  
+Authorization: Bearer {{authToken}}
+
+{
+  "titulo": "Informações de Estacionamento",
+  "mensagem": "O estacionamento recomendado é o da Rua das Flores, 123. É gratuito e fica a 2 quadras da igreja."
+}
+
+###
+
+# Listar comunicados (rota pública)
+GET {{baseUrl}}/eventos/{{eventoId}}/comunicados
+
+###
+
+# Editar comunicado
+PUT {{baseUrl}}/comunicados/{{comunicadoId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "titulo": "Lembrete Importante - ATUALIZADO",
+  "mensagem": "A cerimônia começa às 19h em ponto. Por favor, cheguem com 45 minutos de antecedência para acomodação e fotos."
+}
+
+###
+
+# Listar comunicados após edição
+GET {{baseUrl}}/eventos/{{eventoId}}/comunicados
+
+###
+
+# Deletar comunicado
+DELETE {{baseUrl}}/comunicados/{{comunicadoId}}
+Authorization: Bearer {{authToken}}
+
+###
+
+# Listar comunicados após deleção
+GET {{baseUrl}}/eventos/{{eventoId}}/comunicados

@@ -1,0 +1,63 @@
+# Testes de Galeria - Wedding API
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@authToken = {{authToken}}
+@eventoId = {{eventoId}}
+
+###
+
+# Fazer upload de foto (exemplo com arquivo)
+POST {{baseUrl}}/eventos/{{eventoId}}/fotos
+Content-Type: multipart/form-data; boundary=boundary123
+Authorization: Bearer {{authToken}}
+
+--boundary123
+Content-Disposition: form-data; name="foto"; filename="noivos.jpg"
+Content-Type: image/jpeg
+
+[conteúdo da imagem aqui]
+--boundary123
+Content-Disposition: form-data; name="rotulos"
+Content-Type: application/json
+
+["CASAMENTO", "MAIN"]
+--boundary123--
+
+> {%
+  client.global.set("fotoId", response.body.id);
+%}
+
+###
+
+# Listar fotos públicas
+GET {{baseUrl}}/eventos/{{eventoId}}/fotos/publico
+
+###
+
+# Alternar favorito da foto
+POST {{baseUrl}}/fotos/{{fotoId}}/favoritar
+Authorization: Bearer {{authToken}}
+
+###
+
+# Adicionar rótulo à foto  
+POST {{baseUrl}}/fotos/{{fotoId}}/rotulos
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "rotulo": "FAMILIA"
+}
+
+###
+
+# Remover rótulo da foto
+DELETE {{baseUrl}}/fotos/{{fotoId}}/rotulos/FAMILIA
+Authorization: Bearer {{authToken}}
+
+###
+
+# Deletar foto
+DELETE {{baseUrl}}/fotos/{{fotoId}}
+Authorization: Bearer {{authToken}}

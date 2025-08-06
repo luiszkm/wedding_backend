@@ -1,0 +1,72 @@
+# Testes de Convidados - Wedding API
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@authToken = {{authToken}}
+@eventoId = {{eventoId}}
+
+###
+
+# Criar grupo de convidados
+POST {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "chaveDeAcesso": "padrinhos123",
+  "convidados": [
+    "Carlos Silva",
+    "Ana Santos"
+  ]
+}
+
+> {%
+  client.global.set("chaveAcesso", "padrinhos123");
+  client.global.set("grupoId", response.body.idGrupo);
+%}
+
+###
+
+# Criar outro grupo de convidados
+POST {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "chaveDeAcesso": "familia456",
+  "convidados": [
+    "Roberto Silva",
+    "Maria Silva",
+    "Pedro Silva"
+  ]
+}
+
+> {%
+  client.global.set("chaveAcesso2", "familia456");
+%}
+
+###
+
+# Obter grupo por chave de acesso
+GET {{baseUrl}}/acesso-convidado?chave={{chaveAcesso}}
+Authorization: Bearer {{authToken}}
+
+###
+
+# Confirmar presença (RSVP)
+POST {{baseUrl}}/rsvps
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "{{chaveAcesso}}",
+  "confirmacoes": [
+    {
+      "nome": "Carlos Silva",
+      "status": "CONFIRMADO"
+    },
+    {
+      "nome": "Ana Santos", 
+      "status": "CONFIRMADO"
+    }
+  ]
+}

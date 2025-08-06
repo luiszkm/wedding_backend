@@ -1,0 +1,107 @@
+# Testes de Seleção de Presentes - Wedding API  
+# Inclui testes para o novo formato com cotas (ADR-004)
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@chaveAcesso = {{chaveAcesso}}
+@chaveAcesso2 = {{chaveAcesso2}}
+@presenteIntegralId = {{presenteIntegralId}}
+@presenteFracionadoId = {{presenteFracionadoId}}
+@sofaId = {{sofaId}}
+
+###
+
+# Finalizar seleção - Novo formato com cotas
+POST {{baseUrl}}/selecoes-de-presente
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "{{chaveAcesso}}",
+  "itens": [
+    {
+      "idPresente": "{{presenteIntegralId}}",
+      "quantidade": 1
+    },
+    {
+      "idPresente": "{{presenteFracionadoId}}",
+      "quantidade": 3
+    }
+  ]
+}
+
+> {%
+  client.global.set("selecaoId", response.body.idSelecao);
+%}
+
+###
+
+# Finalizar seleção - Outro grupo selecionando cotas do mesmo presente fracionado
+POST {{baseUrl}}/selecoes-de-presente
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "{{chaveAcesso2}}",
+  "itens": [
+    {
+      "idPresente": "{{presenteFracionadoId}}",
+      "quantidade": 2
+    },
+    {
+      "idPresente": "{{sofaId}}",
+      "quantidade": 4
+    }
+  ]
+}
+
+###
+
+# Listar presentes após seleções (deve mostrar status PARCIALMENTE_SELECIONADO)
+GET {{baseUrl}}/eventos/{{eventoId}}/presentes-publico
+
+###
+
+# Tentar selecionar mais cotas do que disponível (deve falhar)
+POST {{baseUrl}}/selecoes-de-presente
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "familia789",
+  "itens": [
+    {
+      "idPresente": "{{presenteFracionadoId}}",
+      "quantidade": 10
+    }
+  ]
+}
+
+###
+
+# Finalizar seleção - Formato legacy (compatibilidade)
+POST {{baseUrl}}/selecoes-de-presente  
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "{{chaveAcesso}}",
+  "idsDosPresentes": ["{{presenteIntegralId}}"]
+}
+
+###
+
+# Selecionar todas as cotas restantes para completar um presente
+POST {{baseUrl}}/selecoes-de-presente
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "tios999",
+  "itens": [
+    {
+      "idPresente": "{{presenteFracionadoId}}",
+      "quantidade": 5
+    }
+  ]
+}
+
+###
+
+# Verificar presente completamente selecionado
+GET {{baseUrl}}/eventos/{{eventoId}}/presentes-publico

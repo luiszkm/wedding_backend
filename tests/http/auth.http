@@ -1,0 +1,34 @@
+# Testes de Autenticação - Wedding API
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@email = teste@exemplo.com
+@password = minhasenha123
+
+###
+
+# Registrar novo usuário
+POST {{baseUrl}}/usuarios/registrar
+Content-Type: application/json
+
+{
+  "nome": "João Silva",
+  "email": "{{email}}",
+  "telefone": "(11) 99999-9999",
+  "password": "{{password}}"
+}
+
+###
+
+# Login do usuário
+POST {{baseUrl}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+> {%
+  client.global.set("authToken", response.body.token);
+%}

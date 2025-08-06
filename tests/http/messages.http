@@ -1,0 +1,63 @@
+# Testes de Mural de Recados - Wedding API
+
+### Variáveis
+@baseUrl = http://localhost:3000/v1
+@authToken = {{authToken}}
+@eventoId = {{eventoId}}
+@chaveAcesso = {{chaveAcesso}}
+
+###
+
+# Deixar recado público
+POST {{baseUrl}}/recados
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "{{chaveAcesso}}",
+  "nomeDoAutor": "Carlos Silva",
+  "texto": "Que Deus abençoe esta união! Desejamos muita felicidade ao casal!"
+}
+
+###
+
+# Deixar outro recado
+POST {{baseUrl}}/recados
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "familia456",
+  "nomeDoAutor": "Maria Silva", 
+  "texto": "Parabéns aos noivos! Que seja uma vida cheia de amor e alegria!"
+}
+
+> {%
+  client.global.set("recadoId", response.body.id);
+%}
+
+###
+
+# Listar recados públicos aprovados
+GET {{baseUrl}}/eventos/{{eventoId}}/recados/publico
+
+###
+
+# Listar recados para admin (todos os status)
+GET {{baseUrl}}/eventos/{{eventoId}}/recados/admin
+Authorization: Bearer {{authToken}}
+
+###
+
+# Moderar recado - aprovar
+PATCH {{baseUrl}}/recados/{{recadoId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "status": "APROVADO",
+  "ehFavorito": true
+}
+
+###
+
+# Listar recados após moderação
+GET {{baseUrl}}/eventos/{{eventoId}}/recados/publico

@@ -1,4 +1,3 @@
-// file: internal/gift/interfaces/rest/handler.go
 package rest
 
 import (
@@ -50,6 +49,19 @@ func (h *GiftHandler) HandleCriarPresente(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	// Validar campos para tipo de presente
+	if reqDTO.Tipo != domain.TipoPresenteIntegral && reqDTO.Tipo != domain.TipoPresenteFracionado {
+		web.RespondError(w, r, "TIPO_INVALIDO", "Tipo de presente deve ser INTEGRAL ou FRACIONADO.", http.StatusBadRequest)
+		return
+	}
+
+	if reqDTO.Tipo == domain.TipoPresenteFracionado {
+		if reqDTO.ValorTotal == nil || reqDTO.NumeroCotas == nil {
+			web.RespondError(w, r, "CAMPOS_OBRIGATORIOS", "Valor total e número de cotas são obrigatórios para presentes fracionados.", http.StatusBadRequest)
+			return
+		}
+	}
+
 	var fotoFinalURL string
 	file, fileHeader, err := r.FormFile("foto")
 	if err != nil && err != http.ErrMissingFile {
@@ -75,19 +87,45 @@ func (h *GiftHandler) HandleCriarPresente(w http.ResponseWriter, r *http.Request
 		LinkDaLoja: reqDTO.Detalhes.LinkDaLoja,
 	}
 
-	novoPresente, err := h.service.CriarNovoPresente(
-		r.Context(),
-		userID,
-		idEvento,
-		reqDTO.Nome,
-		reqDTO.Descricao,
-		fotoFinalURL,
-		reqDTO.Categoria,
-		reqDTO.EhFavorito,
-		detalhesDominio,
-	)
+	var novoPresente *domain.Presente
+
+	if reqDTO.Tipo == domain.TipoPresenteIntegral {
+		novoPresente, err = h.service.CriarPresenteIntegral(
+			r.Context(),
+			userID,
+			idEvento,
+			reqDTO.Nome,
+			reqDTO.Descricao,
+			fotoFinalURL,
+			reqDTO.Categoria,
+			reqDTO.EhFavorito,
+			detalhesDominio,
+		)
+	} else {
+		novoPresente, err = h.service.CriarPresenteFracionado(
+			r.Context(),
+			userID,
+			idEvento,
+			reqDTO.Nome,
+			reqDTO.Descricao,
+			fotoFinalURL,
+			reqDTO.Categoria,
+			reqDTO.EhFavorito,
+			detalhesDominio,
+			*reqDTO.ValorTotal,
+			*reqDTO.NumeroCotas,
+		)
+	}
+
 	if err != nil {
-		// ... tratamento de erros de negócio ...
+		if errors.Is(err, domain.ErrNomePresenteObrigatorio) ||
+			errors.Is(err, domain.ErrDetalhesInvalidos) ||
+			errors.Is(err, domain.ErrValorTotalInvalido) ||
+			errors.Is(err, domain.ErrNumeroCotasInvalido) {
+			web.RespondError(w, r, "DADOS_INVALIDOS", err.Error(), http.StatusBadRequest)
+			return
+		}
+		log.Printf("ERRO ao criar presente: %v", err)
 		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao criar presente.", http.StatusInternalServerError)
 		return
 	}
@@ -102,7 +140,6 @@ func (h *GiftHandler) HandleListarPresentesPublicos(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// 1. Chama o serviço de aplicação
 	presentes, err := h.service.ListarPresentesDisponiveis(r.Context(), idCasamento)
 	if err != nil {
 		log.Printf("ERRO: %v\n", err)
@@ -110,37 +147,76 @@ func (h *GiftHandler) HandleListarPresentesPublicos(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// 2. Mapeia os objetos de domínio para DTOs de resposta
 	respDTO := make([]PresentePublicoDTO, len(presentes))
 	for i, p := range presentes {
-		respDTO[i] = PresentePublicoDTO{
+		dto := PresentePublicoDTO{
 			ID:         p.ID().String(),
 			Nome:       p.Nome(),
 			Descricao:  p.Descricao(),
 			FotoURL:    p.FotoURL(),
 			EhFavorito: p.EhFavorito(),
 			Categoria:  p.Categoria(),
+			Tipo:       p.Tipo(),
+			Status:     p.Status(),
 			Detalhes: DetalhesPresenteDTO{
 				Tipo:       p.Detalhes().Tipo,
 				LinkDaLoja: p.Detalhes().LinkDaLoja,
 			},
 		}
+
+		if p.EhFracionado() {
+			valorTotal := p.ValorTotal()
+			valorCota := p.ObterValorCota()
+			cotasTotais := len(p.Cotas())
+			cotasDisponiveis := p.ContarCotasDisponiveis()
+			cotasSelecionadas := p.ContarCotasSelecionadas()
+
+			dto.ValorTotal = valorTotal
+			dto.ValorCota = &valorCota
+			dto.CotasTotais = &cotasTotais
+			dto.CotasDisponiveis = &cotasDisponiveis
+			dto.CotasSelecionadas = &cotasSelecionadas
+		}
+
+		respDTO[i] = dto
 	}
 
-	// 3. Responde com sucesso
 	web.Respond(w, r, respDTO, http.StatusOK)
 }
 
 func (h *GiftHandler) HandleFinalizarSelecao(w http.ResponseWriter, r *http.Request) {
 	var reqDTO FinalizarSelecaoRequestDTO
-	// ... decodificar corpo da requisição ...
-
-	ids, err := parseUUIDs(reqDTO.IDsDosPresentes)
-	if err != nil {
-		// ... web.responder com erro 400 ...
+	if err := json.NewDecoder(r.Body).Decode(&reqDTO); err != nil {
+		web.RespondError(w, r, "CORPO_INVALIDO", "O corpo da requisição está malformado.", http.StatusBadRequest)
+		return
 	}
 
-	selecao, err := h.service.FinalizarSelecaoDePresentes(r.Context(), reqDTO.ChaveDeAcesso, ids)
+	if len(reqDTO.Itens) == 0 {
+		web.RespondError(w, r, "LISTA_VAZIA", "A lista de presentes não pode estar vazia.", http.StatusBadRequest)
+		return
+	}
+
+	// Converter DTOs para domain objects
+	itens := make([]application.ItemSelecao, len(reqDTO.Itens))
+	for i, item := range reqDTO.Itens {
+		idPresente, err := uuid.Parse(item.IDPresente)
+		if err != nil {
+			web.RespondError(w, r, "ID_INVALIDO", fmt.Sprintf("ID do presente inválido: %s", item.IDPresente), http.StatusBadRequest)
+			return
+		}
+
+		if item.Quantidade <= 0 {
+			web.RespondError(w, r, "QUANTIDADE_INVALIDA", "A quantidade deve ser positiva.", http.StatusBadRequest)
+			return
+		}
+
+		itens[i] = application.ItemSelecao{
+			IDPresente: idPresente,
+			Quantidade: item.Quantidade,
+		}
+	}
+
+	selecao, err := h.service.FinalizarSelecaoDePresentes(r.Context(), reqDTO.ChaveDeAcesso, itens)
 	if err != nil {
 		var conflitoErr *domain.ErrPresentesConflitantes
 		if errors.As(err, &conflitoErr) {
@@ -152,30 +228,88 @@ func (h *GiftHandler) HandleFinalizarSelecao(w http.ResponseWriter, r *http.Requ
 			web.Respond(w, r, respConflito, http.StatusConflict)
 			return
 		}
-		// ... tratar outros erros (404 para chave de acesso, 500, etc) ...
+
+		log.Printf("ERRO ao finalizar seleção: %v", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao finalizar seleção.", http.StatusInternalServerError)
 		return
 	}
 
 	presentesDTO := make([]PresenteConfirmadoDTO, len(selecao.PresentesConfirmados()))
 	for i, p := range selecao.PresentesConfirmados() {
-		presentesDTO[i] = PresenteConfirmadoDTO{ID: p.ID.String(), Nome: p.Nome}
+		dto := PresenteConfirmadoDTO{
+			ID:         p.ID.String(),
+			Nome:       p.Nome,
+			Quantidade: p.Quantidade,
+		}
+
+		if p.ValorCota != nil {
+			valorTotal := *p.ValorCota * float64(p.Quantidade)
+			dto.ValorCota = p.ValorCota
+			dto.ValorTotal = &valorTotal
+		}
+
+		presentesDTO[i] = dto
 	}
 
 	respDTO := SelecaoConfirmadaDTO{
 		IDSelecao:            selecao.ID().String(),
 		Mensagem:             "Sua seleção foi confirmada com sucesso. Obrigado!",
+		ValorTotal:           selecao.CalcularValorTotal(),
 		PresentesConfirmados: presentesDTO,
 	}
+
 	web.Respond(w, r, respDTO, http.StatusCreated)
 }
 
+// Método legacy para compatibilidade
+func (h *GiftHandler) HandleFinalizarSelecaoLegacy(w http.ResponseWriter, r *http.Request) {
+	var reqDTO FinalizarSelecaoLegacyRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&reqDTO); err != nil {
+		web.RespondError(w, r, "CORPO_INVALIDO", "O corpo da requisição está malformado.", http.StatusBadRequest)
+		return
+	}
+
+	// Converter para o novo formato
+	itens := make([]application.ItemSelecao, len(reqDTO.IDsDosPresentes))
+	for i, idStr := range reqDTO.IDsDosPresentes {
+		idPresente, err := uuid.Parse(idStr)
+		if err != nil {
+			web.RespondError(w, r, "ID_INVALIDO", fmt.Sprintf("ID do presente inválido: %s", idStr), http.StatusBadRequest)
+			return
+		}
+
+		itens[i] = application.ItemSelecao{
+			IDPresente: idPresente,
+			Quantidade: 1, // Legacy sempre usa quantidade 1
+		}
+	}
+
+	// Usar novo método
+	novoReqDTO := FinalizarSelecaoRequestDTO{
+		ChaveDeAcesso: reqDTO.ChaveDeAcesso,
+		Itens:         make([]ItemSelecaoDTO, len(itens)),
+	}
+
+	for i, item := range itens {
+		novoReqDTO.Itens[i] = ItemSelecaoDTO{
+			IDPresente: item.IDPresente.String(),
+			Quantidade: item.Quantidade,
+		}
+	}
+
+	// Reprocessar com novo handler
+	reqBody, _ := json.Marshal(novoReqDTO)
+	r.Body = http.NoBody
+	r.ContentLength = int64(len(reqBody))
+
+	h.HandleFinalizarSelecao(w, r)
+}
+
 func parseUUIDs(ids []string) ([]uuid.UUID, error) {
-	// Pré-aloca o slice com a capacidade necessária para evitar realocações.
 	uuids := make([]uuid.UUID, 0, len(ids))
 	for _, idStr := range ids {
 		id, err := uuid.Parse(idStr)
 		if err != nil {
-			// Se qualquer ID for inválido, a operação inteira falha.
 			return nil, fmt.Errorf("id inválido na lista: %s", idStr)
 		}
 		uuids = append(uuids, id)
@@ -183,8 +317,6 @@ func parseUUIDs(ids []string) ([]uuid.UUID, error) {
 	return uuids, nil
 }
 
-// stringUUIDs converte um slice de UUIDs de volta para um slice de strings.
-// Usado para construir a resposta de erro em caso de conflito.
 func stringUUIDs(uuids []uuid.UUID) []string {
 	ids := make([]string, len(uuids))
 	for i, u := range uuids {

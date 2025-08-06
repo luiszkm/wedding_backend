@@ -1,4 +1,3 @@
-// file: internal/gift/application/service.go
 package application
 
 import (
@@ -11,27 +10,30 @@ import (
 	"github.com/luiszkm/wedding_backend/internal/gift/domain"
 )
 
+type ItemSelecao struct {
+	IDPresente uuid.UUID
+	Quantidade int
+}
+
 type GiftService struct {
 	repo        domain.PresenteRepository
 	selecaoRepo domain.SelecaoRepository
-	eventRepo   eventDomain.EventoRepository // <-- Nova dependência
-
+	eventRepo   eventDomain.EventoRepository
 }
 
 func NewGiftService(presenteRepo domain.PresenteRepository, selecaoRepo domain.SelecaoRepository, eventRepo eventDomain.EventoRepository) *GiftService {
 	return &GiftService{repo: presenteRepo, selecaoRepo: selecaoRepo, eventRepo: eventRepo}
 }
 
-func (s *GiftService) CriarNovoPresente(ctx context.Context, userID, idEvento uuid.UUID, nome, desc, fotoURL, categoria string, favorito bool, detalhes domain.DetalhesPresente) (*domain.Presente, error) {
-	// 1. AUTORIZAÇÃO: Verifica se o usuário logado é o dono do evento.
+func (s *GiftService) CriarPresenteIntegral(ctx context.Context, userID, idEvento uuid.UUID, nome, desc, fotoURL, categoria string, favorito bool, detalhes domain.DetalhesPresente) (*domain.Presente, error) {
+	// Verificar permissão
 	_, err := s.eventRepo.FindByID(ctx, userID, idEvento)
 	if err != nil {
-		// Retorna o erro do repositório (ex: não encontrado), que o handler traduzirá para 403 ou 404.
 		return nil, fmt.Errorf("permissão negada ou evento não encontrado: %w", err)
 	}
 
-	// 2. LÓGICA DE NEGÓCIO: Se a autorização passou, cria o presente.
-	novoPresente, err := domain.NewPresente(idEvento, nome, desc, fotoURL, favorito, categoria, detalhes)
+	// Criar presente integral
+	novoPresente, err := domain.NewPresenteIntegral(idEvento, nome, desc, fotoURL, favorito, categoria, detalhes)
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +44,32 @@ func (s *GiftService) CriarNovoPresente(ctx context.Context, userID, idEvento uu
 
 	return novoPresente, nil
 }
+
+func (s *GiftService) CriarPresenteFracionado(ctx context.Context, userID, idEvento uuid.UUID, nome, desc, fotoURL, categoria string, favorito bool, detalhes domain.DetalhesPresente, valorTotal float64, numeroCotas int) (*domain.Presente, error) {
+	// Verificar permissão
+	_, err := s.eventRepo.FindByID(ctx, userID, idEvento)
+	if err != nil {
+		return nil, fmt.Errorf("permissão negada ou evento não encontrado: %w", err)
+	}
+
+	// Criar presente fracionado
+	novoPresente, err := domain.NewPresenteFracionado(idEvento, nome, desc, fotoURL, favorito, categoria, detalhes, valorTotal, numeroCotas)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.repo.SaveWithCotas(ctx, novoPresente); err != nil {
+		return nil, fmt.Errorf("falha ao salvar novo presente fracionado: %w", err)
+	}
+
+	return novoPresente, nil
+}
+
+// Método legacy mantido para compatibilidade (será removido depois de atualizar handlers)
+func (s *GiftService) CriarNovoPresente(ctx context.Context, userID, idEvento uuid.UUID, nome, desc, fotoURL, categoria string, favorito bool, detalhes domain.DetalhesPresente) (*domain.Presente, error) {
+	return s.CriarPresenteIntegral(ctx, userID, idEvento, nome, desc, fotoURL, categoria, favorito, detalhes)
+}
+
 func (s *GiftService) ListarPresentesDisponiveis(ctx context.Context, casamentoID uuid.UUID) ([]*domain.Presente, error) {
 	presentes, err := s.repo.ListarDisponiveisPorCasamento(ctx, casamentoID)
 	if err != nil {
@@ -49,14 +77,100 @@ func (s *GiftService) ListarPresentesDisponiveis(ctx context.Context, casamentoI
 	}
 	return presentes, nil
 }
-func (s *GiftService) FinalizarSelecaoDePresentes(ctx context.Context, chaveDeAcesso string, idsDosPresentes []uuid.UUID) (*domain.Selecao, error) {
-	if len(idsDosPresentes) == 0 {
+
+func (s *GiftService) FinalizarSelecaoDePresentes(ctx context.Context, chaveDeAcesso string, itens []ItemSelecao) (*domain.Selecao, error) {
+	if len(itens) == 0 {
 		return nil, errors.New("a lista de presentes não pode estar vazia")
 	}
 
-	selecao, err := s.selecaoRepo.SalvarSelecao(ctx, chaveDeAcesso, idsDosPresentes)
+	// Extrair IDs únicos dos presentes
+	presenteIDs := make([]uuid.UUID, 0, len(itens))
+	itensMap := make(map[uuid.UUID]int)
+
+	for _, item := range itens {
+		if item.Quantidade <= 0 {
+			return nil, fmt.Errorf("quantidade deve ser positiva para presente %s", item.IDPresente.String())
+		}
+		presenteIDs = append(presenteIDs, item.IDPresente)
+		itensMap[item.IDPresente] = item.Quantidade
+	}
+
+	// Buscar presentes
+	presentes, err := s.repo.FindByIDs(ctx, presenteIDs)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao buscar presentes: %w", err)
+	}
+
+	if len(presentes) != len(presenteIDs) {
+		return nil, errors.New("um ou mais presentes não foram encontrados")
+	}
+
+	// Validar disponibilidade e preparar seleção
+	presentesConfirmados := make([]domain.PresenteConfirmado, 0, len(presentes))
+	conflitantes := make([]uuid.UUID, 0)
+
+	for _, presente := range presentes {
+		quantidade := itensMap[presente.ID()]
+
+		if presente.EhIntegral() {
+			// Presente integral: quantidade deve ser 1 e deve estar disponível
+			if quantidade != 1 {
+				return nil, fmt.Errorf("presente integral %s deve ter quantidade 1", presente.Nome())
+			}
+			if presente.Status() != domain.StatusDisponivel {
+				conflitantes = append(conflitantes, presente.ID())
+				continue
+			}
+
+			presentesConfirmados = append(presentesConfirmados, domain.PresenteConfirmado{
+				ID:         presente.ID(),
+				Nome:       presente.Nome(),
+				Quantidade: 1,
+				ValorCota:  nil,
+			})
+		} else {
+			// Presente fracionado: verificar cotas disponíveis
+			cotasDisponiveis := presente.ContarCotasDisponiveis()
+			if quantidade > cotasDisponiveis {
+				return nil, fmt.Errorf("presente %s tem apenas %d cotas disponíveis, solicitado %d", presente.Nome(), cotasDisponiveis, quantidade)
+			}
+
+			valorCota := presente.ObterValorCota()
+			presentesConfirmados = append(presentesConfirmados, domain.PresenteConfirmado{
+				ID:         presente.ID(),
+				Nome:       presente.Nome(),
+				Quantidade: quantidade,
+				ValorCota:  &valorCota,
+			})
+		}
+	}
+
+	if len(conflitantes) > 0 {
+		return nil, &domain.ErrPresentesConflitantes{PresentesIDs: conflitantes}
+	}
+
+	// Finalizar seleção usando o método existente
+	idsParaSelecao := make([]uuid.UUID, len(presenteIDs))
+	copy(idsParaSelecao, presenteIDs)
+
+	selecao, err := s.selecaoRepo.SalvarSelecao(ctx, chaveDeAcesso, idsParaSelecao)
 	if err != nil {
 		return nil, fmt.Errorf("falha no serviço ao finalizar seleção: %w", err)
 	}
+
 	return selecao, nil
+}
+
+// Método legacy mantido para compatibilidade
+func (s *GiftService) FinalizarSelecaoDepresentes(ctx context.Context, chaveDeAcesso string, idsDosPresentes []uuid.UUID) (*domain.Selecao, error) {
+	// Converter para novo formato (todos com quantidade 1)
+	itens := make([]ItemSelecao, len(idsDosPresentes))
+	for i, id := range idsDosPresentes {
+		itens[i] = ItemSelecao{
+			IDPresente: id,
+			Quantidade: 1,
+		}
+	}
+
+	return s.FinalizarSelecaoDePresentes(ctx, chaveDeAcesso, itens)
 }

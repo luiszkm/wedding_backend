@@ -18,8 +18,10 @@ type Selecao struct {
 
 // PresenteConfirmado é uma entidade de valor dentro da seleção.
 type PresenteConfirmado struct {
-	ID   uuid.UUID
-	Nome string
+	ID         uuid.UUID
+	Nome       string
+	Quantidade int
+	ValorCota  *float64
 }
 
 // NewSelecao é a fábrica para o agregado.
@@ -42,7 +44,19 @@ func HydrateSelecao(id, idCasamento, idGrupo uuid.UUID, presentes []PresenteConf
 	}
 }
 
+func (s *Selecao) CalcularValorTotal() float64 {
+	total := 0.0
+	for _, presente := range s.presentesConfirmados {
+		if presente.ValorCota != nil {
+			total += *presente.ValorCota * float64(presente.Quantidade)
+		}
+	}
+	return total
+}
+
 // Getters
 func (s *Selecao) ID() uuid.UUID                              { return s.id }
+func (s *Selecao) IDCasamento() uuid.UUID                     { return s.idCasamento }
+func (s *Selecao) IDGrupoDeConvidados() uuid.UUID             { return s.idGrupoDeConvidados }
 func (s *Selecao) PresentesConfirmados() []PresenteConfirmado { return s.presentesConfirmados }
 func (s *Selecao) DataDaSelecao() time.Time                   { return s.dataDaSelecao }

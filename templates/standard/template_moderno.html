@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+{{template "partials/header.html" .}}
+
+<body>
+    <!-- Header Principal -->
+    <header class="header">
+        <div class="container">
+            <h1>{{.Event.Nome}}</h1>
+            {{if .Event.Data}}<p>{{.Event.Data.Format "02 de Janeiro de 2006"}}</p>{{end}}
+        </div>
+    </header>
+
+    <!-- Navegação -->
+    {{template "partials/navigation.html" .}}
+
+    <!-- Seção Principal -->
+    <main>
+        <section id="inicio" class="hero-section">
+            <div class="container">
+                <div class="hero-content">
+                    <h2>Celebre Conosco!</h2>
+                    <p class="hero-description">
+                        Estamos muito felizes em compartilhar este momento especial com vocês.
+                        {{if .Event.Data}}Nos encontraremos no dia {{.Event.Data.Format "02/01/2006"}}.{{end}}
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        {{if and .ShowRSVP .GuestGroups}}
+        <!-- Seção RSVP -->
+        <section id="confirmacao" class="rsvp-section">
+            <div class="container">
+                <h2>Confirmar Presença</h2>
+                <p>Use sua chave de acesso para confirmar sua presença:</p>
+                <div class="rsvp-form">
+                    <form id="rsvpForm">
+                        <input type="text" id="accessKey" placeholder="Digite sua chave de acesso" required>
+                        <button type="submit">Confirmar Presença</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+        {{end}}
+
+        {{if and .ShowGifts .Gifts}}
+        <!-- Lista de Presentes -->
+        <section id="presentes" class="gifts-section">
+            <div class="container">
+                <h2>Lista de Presentes</h2>
+                <div class="gifts-grid">
+                    {{range .Gifts}}
+                    <div class="gift-card {{if eq .Status "SELECIONADO"}}selected{{end}}">
+                        {{if .FotoURL}}<img src="{{.FotoURL}}" alt="{{.Nome}}" loading="lazy">{{end}}
+                        <h3>{{.Nome}}</h3>
+                        {{if .Descricao}}<p>{{.Descricao}}</p>{{end}}
+                        {{if eq .Status "DISPONIVEL"}}
+                        <button class="gift-select-btn" data-gift-id="{{.ID}}">Selecionar</button>
+                        {{else}}
+                        <span class="gift-selected">Já Selecionado</span>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
+
+        {{if and .ShowMessages .Messages}}
+        <!-- Recados -->
+        <section id="recados" class="messages-section">
+            <div class="container">
+                <h2>Recados dos Convidados</h2>
+                <div class="messages-container">
+                    {{range .Messages}}
+                    {{if eq .Status "APROVADO"}}
+                    <div class="message-card {{if .EhFavorito}}favorite{{end}}">
+                        <p class="message-text">"{{.Texto}}"</p>
+                        <p class="message-author">- {{.NomeDoAutor}}</p>
+                    </div>
+                    {{end}}
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
+
+        {{if and .ShowGallery .Photos}}
+        <!-- Galeria de Fotos -->
+        <section id="fotos" class="gallery-section">
+            <div class="container">
+                <h2>Galeria de Fotos</h2>
+                <div class="photos-grid">
+                    {{range .Photos}}
+                    <div class="photo-item">
+                        <img src="{{.UrlPublica}}" alt="Foto do evento" loading="lazy">
+                        {{if .EhFavorito}}<span class="favorite-badge">❤️</span>{{end}}
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
+    </main>
+
+    {{template "partials/footer.html" .}}
+
+    <!-- Estilos específicos do template moderno -->
+    <style>
+        .hero-section {
+            padding: 4rem 0;
+            text-align: center;
+            background: linear-gradient(135deg, var(--secondary-color), var(--background-color));
+        }
+        
+        .hero-content h2 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+        
+        .hero-description {
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .rsvp-section, .gifts-section, .messages-section, .gallery-section {
+            padding: 3rem 0;
+        }
+        
+        .rsvp-section h2, .gifts-section h2, .messages-section h2, .gallery-section h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 2rem;
+            color: var(--primary-color);
+        }
+
+        .rsvp-form {
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .rsvp-form input {
+            padding: 1rem;
+            border: 2px solid var(--secondary-color);
+            border-radius: 25px;
+            margin-right: 1rem;
+            font-size: 1rem;
+            min-width: 250px;
+        }
+        
+        .rsvp-form button {
+            padding: 1rem 2rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background-color 0.3s ease;
+        }
+        
+        .rsvp-form button:hover {
+            background-color: var(--accent-color);
+        }
+
+        .gifts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        
+        .gift-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .gift-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .gift-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .gift-card.selected {
+            opacity: 0.7;
+            background-color: #f9f9f9;
+        }
+        
+        .gift-select-btn {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+        
+        .gift-selected {
+            background-color: #6b7280;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+
+        .messages-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .message-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        
+        .message-card.favorite {
+            border-left: 5px solid var(--accent-color);
+        }
+        
+        .message-text {
+            font-style: italic;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+        
+        .message-author {
+            font-weight: bold;
+            color: var(--primary-color);
+            text-align: right;
+        }
+
+        .photos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        
+        .photo-item {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        .photo-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+        
+        .photo-item:hover img {
+            transform: scale(1.05);
+        }
+        
+        .favorite-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .hero-content h2 {
+                font-size: 2rem;
+            }
+            
+            .rsvp-form input {
+                display: block;
+                margin: 0 auto 1rem auto;
+                min-width: auto;
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .rsvp-form button {
+                display: block;
+                margin: 0 auto;
+            }
+            
+            .gifts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .messages-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .photos-grid {
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            }
+        }
+    </style>
+
+    <!-- Scripts para interatividade -->
+    <script>
+        // Smooth scroll para navegação
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Form RSVP
+        const rsvpForm = document.getElementById('rsvpForm');
+        if (rsvpForm) {
+            rsvpForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const accessKey = document.getElementById('accessKey').value;
+                
+                if (!accessKey.trim()) {
+                    alert('Por favor, digite sua chave de acesso.');
+                    return;
+                }
+                
+                // Aqui seria feita a chamada para a API de RSVP
+                alert('Funcionalidade RSVP será implementada em breve!');
+            });
+        }
+
+        // Seleção de presentes
+        document.querySelectorAll('.gift-select-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const giftId = this.getAttribute('data-gift-id');
+                
+                // Aqui seria feita a chamada para a API de seleção de presentes
+                alert('Funcionalidade de seleção de presentes será implementada em breve!');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -43,6 +43,10 @@ import (
 	billingApp "github.com/luiszkm/wedding_backend/internal/billing/application"
 	billingInfra "github.com/luiszkm/wedding_backend/internal/billing/infrastructure"
 	billingREST "github.com/luiszkm/wedding_backend/internal/billing/interfaces/rest"
+
+	// pageTemplateApp "github.com/luiszkm/wedding_backend/internal/pagetemplate/application"
+	// pageTemplateREST "github.com/luiszkm/wedding_backend/internal/pagetemplate/interfaces/rest"
+	// "github.com/luiszkm/wedding_backend/internal/platform/template"
 )
 
 func main() {

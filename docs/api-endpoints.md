@@ -139,6 +139,112 @@ GET /v1/casamentos/{idCasamento}/recados/publico
 }
 ```
 
+### Páginas Públicas de Eventos
+
+#### Renderizar Página Pública do Evento
+```http
+GET /v1/eventos/{urlSlug}/pagina
+```
+
+Renderiza a página pública de um evento usando seu template configurado.
+
+**Parâmetros:**
+- `urlSlug`: URL amigável do evento (ex: "casamento-joao-maria-2024")
+
+**Response:**
+- Content-Type: `text/html; charset=utf-8`
+- Cache-Control: `public, max-age=300`
+- HTML completo renderizado com template do evento
+
+**Exemplo:**
+```bash
+curl https://api.exemplo.com/v1/eventos/casamento-joao-maria/pagina
+```
+
+### Templates
+
+#### Listar Templates Disponíveis
+```http
+GET /v1/templates/disponiveis
+```
+
+Retorna lista de todos os templates padrão disponíveis para seleção.
+
+**Response:**
+```json
+{
+  "templates": [
+    {
+      "id": "template_moderno",
+      "nome": "Moderno",
+      "descricao": "Template moderno e minimalista com design clean",
+      "tipo": "STANDARD",
+      "paleta_default": {
+        "primary": "#2563eb",
+        "secondary": "#f1f5f9",
+        "accent": "#10b981",
+        "background": "#ffffff",
+        "text": "#1f2937"
+      },
+      "suporta_gifts": true,
+      "suporta_gallery": true,
+      "suporta_messages": true,
+      "suporta_rsvp": true,
+      "criado_em": "2024-01-15T10:00:00Z"
+    },
+    {
+      "id": "template_classico",
+      "nome": "Clássico", 
+      "descricao": "Template tradicional elegante com tipografia clássica",
+      "tipo": "STANDARD",
+      "paleta_default": {
+        "primary": "#8b5a3c",
+        "secondary": "#f5f5dc",
+        "accent": "#d4af37",
+        "background": "#fdfdf8",
+        "text": "#2c1810"
+      },
+      "suporta_gifts": true,
+      "suporta_gallery": true,
+      "suporta_messages": true,
+      "suporta_rsvp": true,
+      "criado_em": "2024-01-15T10:00:00Z"
+    }
+  ],
+  "total": 3
+}
+```
+
+#### Obter Metadados de Template Específico
+```http
+GET /v1/templates/{templateId}
+```
+
+**Parâmetros:**
+- `templateId`: ID do template (ex: "template_moderno" ou "cliente_premium.html")
+
+**Response:**
+```json
+{
+  "id": "template_moderno",
+  "nome": "Moderno",
+  "descricao": "Template moderno e minimalista",
+  "tipo": "STANDARD",
+  "paleta_default": {
+    "primary": "#2563eb",
+    "secondary": "#f1f5f9",
+    "accent": "#10b981",
+    "background": "#ffffff", 
+    "text": "#1f2937"
+  },
+  "suporta_gifts": true,
+  "suporta_gallery": true,
+  "suporta_messages": true,
+  "suporta_rsvp": true,
+  "criado_em": "2024-01-15T10:00:00Z"
+}
+```
+
 ### Billing
 
 #### Listar Planos

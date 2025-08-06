@@ -1,0 +1,60 @@
+<!-- file: templates/partials/navigation.html -->
+<nav class="navigation">
+    <div class="container">
+        <ul class="nav-menu">
+            <li><a href="#inicio">Início</a></li>
+            {{if .ShowGifts}}<li><a href="#presentes">Lista de Presentes</a></li>{{end}}
+            {{if .ShowGallery}}<li><a href="#fotos">Fotos</a></li>{{end}}
+            {{if .ShowMessages}}<li><a href="#recados">Recados</a></li>{{end}}
+            {{if .ShowRSVP}}<li><a href="#confirmacao">Confirmar Presença</a></li>{{end}}
+        </ul>
+    </div>
+    
+    <style>
+        .navigation {
+            background-color: var(--background-color);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav-menu {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .nav-menu li {
+            margin: 0 1.5rem;
+        }
+        
+        .nav-menu a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-menu a:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-menu {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            
+            .nav-menu li {
+                margin: 0.25rem 0;
+            }
+        }
+    </style>
+</nav>

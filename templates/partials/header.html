@@ -1,0 +1,70 @@
+<!-- file: templates/partials/header.html -->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Event.Nome}} - {{.Event.Tipo}}</title>
+    <meta name="description" content="{{.Event.Nome}} - Celebre conosco este momento especial">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="{{.Event.Nome}}">
+    <meta property="og:description" content="{{.Event.Nome}} - Celebre conosco este momento especial">
+    
+    <!-- CSS Variables para paleta de cores -->
+    <style>
+        :root {
+            --primary-color: {{.PaletaCores.primary}};
+            --secondary-color: {{.PaletaCores.secondary}};
+            --accent-color: {{.PaletaCores.accent}};
+            --background-color: {{.PaletaCores.background}};
+            --text-color: {{.PaletaCores.text}};
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Georgia', serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            font-weight: 400;
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .header p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>

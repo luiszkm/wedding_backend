@@ -44,6 +44,10 @@ import (
 	billingInfra "github.com/luiszkm/wedding_backend/internal/billing/infrastructure"
 	billingREST "github.com/luiszkm/wedding_backend/internal/billing/interfaces/rest"
 
+	communicationApp "github.com/luiszkm/wedding_backend/internal/communication/application"
+	communicationInfra "github.com/luiszkm/wedding_backend/internal/communication/infrastructure"
+	communicationREST "github.com/luiszkm/wedding_backend/internal/communication/interfaces/rest"
+
 	// pageTemplateApp "github.com/luiszkm/wedding_backend/internal/pagetemplate/application"
 	// pageTemplateREST "github.com/luiszkm/wedding_backend/internal/pagetemplate/interfaces/rest"
 	// "github.com/luiszkm/wedding_backend/internal/platform/template"
@@ -95,6 +99,7 @@ func main() {
 	eventRepo := eventInfra.NewPostgresEventoRepository(dbpool)
 	planoRepo := billingInfra.NewPostgresPlanoRepository(dbpool)
 	billingRepo := billingInfra.NewPostgresAssinaturaRepository(dbpool)
+	communicationRepo := communicationInfra.NewPostgresComunicadoRepository(dbpool)
 
 	// --- Serviços de Aplicação ---
 	guestService := guestApp.NewGuestService(guestRepo)
@@ -104,6 +109,7 @@ func main() {
 	iamService := iamApp.NewIAMService(usuarioRepo, jwtService)
 	eventService := eventApp.NewEventService(eventRepo)
 	billingService := billingApp.NewBillingService(planoRepo, billingRepo, paymentGateway)
+	communicationService := communicationApp.NewCommunicationService(communicationRepo, eventRepo)
 
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
@@ -113,6 +119,7 @@ func main() {
 	iamHandler := iamREST.NewIAMHandler(iamService)
 	eventHandler := eventREST.NewEventHandler(eventService)
 	billingHandler := billingREST.NewBillingHandler(billingService, stripeWebhookSecret)
+	communicationHandler := communicationREST.NewCommunicationHandler(communicationService)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
@@ -126,6 +133,7 @@ func main() {
 		r.Post("/usuarios/login", iamHandler.HandleLogin)
 		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
 		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
+		r.Get("/eventos/{idEvento}/comunicados", communicationHandler.HandleListarComunicados)
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
 		r.Get("/planos", billingHandler.HandleListarPlanos)            // Nova rota pública
 		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook) // <-- Rota do Webhook
@@ -146,6 +154,10 @@ func main() {
 			r.Post("/recados", recadoHandler.HandleDeixarRecado)
 			r.Get("/casamentos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)
 			r.Patch("/recados/{idRecado}", recadoHandler.HandleModerarRecado)
+			// rota de Comunicados
+			r.Post("/eventos/{idEvento}/comunicados", communicationHandler.HandleCriarComunicado)
+			r.Put("/comunicados/{idComunicado}", communicationHandler.HandleEditarComunicado)
+			r.Delete("/comunicados/{idComunicado}", communicationHandler.HandleDeletarComunicado)
 			// rota de Galeria
 			r.Post("/casamentos/{idCasamento}/fotos", galleryHandler.HandleFazerUpload)
 			r.Get("/casamentos/{idCasamento}/fotos/publico", galleryHandler.HandleListarFotosPublicas)

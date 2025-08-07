@@ -1,0 +1,272 @@
+### API de Roteiro/Itinerário - Wedding Backend
+### Base URL: http://localhost:3000/v1
+
+### Variables
+@baseUrl = http://localhost:3000/v1
+@eventId = {{$randomUUID}}
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+@itemId = {{$randomUUID}}
+
+### ===========================================
+### SETUP - Criar usuário e evento para testes
+### ===========================================
+
+### 1. Registrar usuário
+POST {{baseUrl}}/usuarios/registrar
+Content-Type: application/json
+
+{
+  "nome": "Teste Roteiro",
+  "email": "teste.roteiro@example.com",
+  "senha": "senha123"
+}
+
+### 2. Login para obter token
+POST {{baseUrl}}/usuarios/login
+Content-Type: application/json
+
+{
+  "email": "teste.roteiro@example.com",
+  "senha": "senha123"
+}
+
+### 3. Criar evento (necessário para criar itens do roteiro)
+POST {{baseUrl}}/eventos
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "nomeNoivo": "João Silva",
+  "nomeNoiva": "Maria Santos",
+  "dataDoEvento": "2024-12-25T15:00:00Z",
+  "localDoEvento": "Igreja São José",
+  "urlSlug": "joao-maria-2024"
+}
+
+### ===========================================
+### TESTES DA API DE ROTEIRO - PÚBLICO
+### ===========================================
+
+### 4. Listar roteiro de um evento (PÚBLICO) - Lista vazia inicialmente
+GET {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+
+### ===========================================
+### TESTES DA API DE ROTEIRO - AUTENTICADO
+### ===========================================
+
+### 5. Criar item do roteiro - Cerimônia
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T15:00:00Z",
+  "tituloAtividade": "Cerimônia Religiosa",
+  "descricaoAtividade": "Cerimônia de casamento na Igreja São José. Os convidados devem chegar com 30 minutos de antecedência."
+}
+
+### 6. Criar item do roteiro - Coquetel
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T16:30:00Z",
+  "tituloAtividade": "Coquetel de Recepção",
+  "descricaoAtividade": "Coquetel de boas-vindas no jardim do salão. Serviço de drinks e canapés."
+}
+
+### 7. Criar item do roteiro - Jantar
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T19:00:00Z",
+  "tituloAtividade": "Jantar",
+  "descricaoAtividade": "Jantar servido no salão principal. Cardápio: entrada, prato principal e sobremesa."
+}
+
+### 8. Criar item do roteiro - Festa
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T21:00:00Z",
+  "tituloAtividade": "Festa e Dança",
+  "descricaoAtividade": "Abertura da pista de dança com a primeira dança dos noivos. DJ ao vivo até 2h da manhã."
+}
+
+### 9. Criar item do roteiro sem descrição
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T23:30:00Z",
+  "tituloAtividade": "Corte do Bolo"
+}
+
+### 10. Listar roteiro completo (PÚBLICO) - Deve mostrar todos os itens ordenados por horário
+GET {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+
+### 11. Atualizar item do roteiro (usar ID retornado do item criado)
+PUT {{baseUrl}}/roteiro/{{itemId}}
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T15:30:00Z",
+  "tituloAtividade": "Cerimônia Religiosa - ATUALIZADA",
+  "descricaoAtividade": "Cerimônia de casamento na Igreja São José - HORÁRIO ATUALIZADO. Os convidados devem chegar com 30 minutos de antecedência."
+}
+
+### 12. Deletar item do roteiro
+DELETE {{baseUrl}}/roteiro/{{itemId}}
+Authorization: Bearer {{accessToken}}
+
+### ===========================================
+### TESTES DE VALIDAÇÃO E ERROS
+### ===========================================
+
+### 13. Tentar criar item sem autenticação (deve retornar 401)
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+
+{
+  "horario": "2024-12-25T15:00:00Z",
+  "tituloAtividade": "Sem Auth"
+}
+
+### 14. Tentar criar item com título vazio (deve retornar 400)
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T15:00:00Z",
+  "tituloAtividade": "",
+  "descricaoAtividade": "Teste com título vazio"
+}
+
+### 15. Tentar criar item com título muito longo (deve retornar 400)
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T15:00:00Z",
+  "tituloAtividade": "Este é um título extremamente longo que ultrapassa o limite de 255 caracteres permitidos pela validação do domínio. Este texto está sendo propositalmente criado para ser muito longo e causar um erro de validação, demonstrando que a API está funcionando corretamente e validando os dados de entrada conforme esperado pelo sistema.",
+  "descricaoAtividade": "Teste com título muito longo"
+}
+
+### 16. Tentar criar item com horário inválido/vazio (deve retornar 400)
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "",
+  "tituloAtividade": "Teste Horário Inválido",
+  "descricaoAtividade": "Teste com horário vazio"
+}
+
+### 17. Tentar criar item para evento inexistente (deve retornar 400 ou 404)
+POST {{baseUrl}}/eventos/00000000-0000-0000-0000-000000000000/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T15:00:00Z",
+  "tituloAtividade": "Evento Inexistente",
+  "descricaoAtividade": "Teste com evento que não existe"
+}
+
+### 18. Tentar atualizar item inexistente (deve retornar 404)
+PUT {{baseUrl}}/roteiro/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T15:00:00Z",
+  "tituloAtividade": "Item Inexistente",
+  "descricaoAtividade": "Teste com item que não existe"
+}
+
+### 19. Tentar deletar item inexistente (deve retornar 404)
+DELETE {{baseUrl}}/roteiro/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{accessToken}}
+
+### 20. Tentar acessar roteiro de evento inexistente (deve retornar lista vazia)
+GET {{baseUrl}}/eventos/00000000-0000-0000-0000-000000000000/roteiro
+Content-Type: application/json
+
+### ===========================================
+### TESTES DE SEGURANÇA
+### ===========================================
+
+### 21. Tentar atualizar item de outro usuário (deve retornar 404)
+PUT {{baseUrl}}/roteiro/{{itemId}}
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ik91dHJvIFVzdWFyaW8iLCJpYXQiOjE1MTYyMzkwMjJ9.invalid-token
+
+{
+  "horario": "2024-12-25T15:00:00Z",
+  "tituloAtividade": "Tentativa Hack",
+  "descricaoAtividade": "Tentando atualizar item de outro usuário"
+}
+
+### 22. Tentar deletar item de outro usuário (deve retornar 404)
+DELETE {{baseUrl}}/roteiro/{{itemId}}
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6Ik91dHJvIFVzdWFyaW8iLCJpYXQiOjE1MTYyMzkwMjJ9.invalid-token
+
+### ===========================================
+### EXEMPLO DE ROTEIRO COMPLETO
+### ===========================================
+
+### 23. Criar roteiro completo de um casamento
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T13:00:00Z",
+  "tituloAtividade": "Preparativos dos Noivos",
+  "descricaoAtividade": "Preparação dos noivos no hotel. Chegada dos fotógrafos e equipe."
+}
+
+###
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T14:00:00Z",
+  "tituloAtividade": "Chegada dos Convidados",
+  "descricaoAtividade": "Recepção dos convidados na igreja. Assinatura do livro de presença."
+}
+
+###
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T14:30:00Z",
+  "tituloAtividade": "Entrada do Noivo",
+  "descricaoAtividade": "Entrada do noivo acompanhado de sua mãe."
+}
+
+###
+POST {{baseUrl}}/eventos/{{eventId}}/roteiro
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+{
+  "horario": "2024-12-25T14:45:00Z",
+  "tituloAtividade": "Entrada da Noiva",
+  "descricaoAtividade": "Entrada da noiva acompanhada de seu pai. Marcha nupcial."
+}

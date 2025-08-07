@@ -48,6 +48,10 @@ import (
 	communicationInfra "github.com/luiszkm/wedding_backend/internal/communication/infrastructure"
 	communicationREST "github.com/luiszkm/wedding_backend/internal/communication/interfaces/rest"
 
+	itineraryApp "github.com/luiszkm/wedding_backend/internal/itinerary/application"
+	itineraryInfra "github.com/luiszkm/wedding_backend/internal/itinerary/infrastructure"
+	itineraryREST "github.com/luiszkm/wedding_backend/internal/itinerary/interfaces/rest"
+
 	// pageTemplateApp "github.com/luiszkm/wedding_backend/internal/pagetemplate/application"
 	// pageTemplateREST "github.com/luiszkm/wedding_backend/internal/pagetemplate/interfaces/rest"
 	// "github.com/luiszkm/wedding_backend/internal/platform/template"
@@ -100,6 +104,7 @@ func main() {
 	planoRepo := billingInfra.NewPostgresPlanoRepository(dbpool)
 	billingRepo := billingInfra.NewPostgresAssinaturaRepository(dbpool)
 	communicationRepo := communicationInfra.NewPostgresComunicadoRepository(dbpool)
+	itineraryRepo := itineraryInfra.NewPostgresItineraryRepository(dbpool)
 
 	// --- Serviços de Aplicação ---
 	guestService := guestApp.NewGuestService(guestRepo)
@@ -110,6 +115,7 @@ func main() {
 	eventService := eventApp.NewEventService(eventRepo)
 	billingService := billingApp.NewBillingService(planoRepo, billingRepo, paymentGateway)
 	communicationService := communicationApp.NewCommunicationService(communicationRepo, eventRepo)
+	itineraryService := itineraryApp.NewItineraryService(itineraryRepo)
 
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
@@ -120,6 +126,7 @@ func main() {
 	eventHandler := eventREST.NewEventHandler(eventService)
 	billingHandler := billingREST.NewBillingHandler(billingService, stripeWebhookSecret)
 	communicationHandler := communicationREST.NewCommunicationHandler(communicationService)
+	itineraryHandler := itineraryREST.NewItineraryHandler(itineraryService)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
@@ -134,6 +141,7 @@ func main() {
 		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
 		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
 		r.Get("/eventos/{idEvento}/comunicados", communicationHandler.HandleListarComunicados)
+		r.Get("/eventos/{idEvento}/roteiro", itineraryHandler.HandleGetItinerary) // Rota pública do roteiro
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
 		r.Get("/planos", billingHandler.HandleListarPlanos)            // Nova rota pública
 		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook) // <-- Rota do Webhook
@@ -158,6 +166,10 @@ func main() {
 			r.Post("/eventos/{idEvento}/comunicados", communicationHandler.HandleCriarComunicado)
 			r.Put("/comunicados/{idComunicado}", communicationHandler.HandleEditarComunicado)
 			r.Delete("/comunicados/{idComunicado}", communicationHandler.HandleDeletarComunicado)
+			// rotas de Roteiro/Itinerary (autenticadas)
+			r.Post("/eventos/{idEvento}/roteiro", itineraryHandler.HandleCreateItineraryItem)
+			r.Put("/roteiro/{idItemRoteiro}", itineraryHandler.HandleUpdateItineraryItem)
+			r.Delete("/roteiro/{idItemRoteiro}", itineraryHandler.HandleDeleteItineraryItem)
 			// rota de Galeria
 			r.Post("/casamentos/{idCasamento}/fotos", galleryHandler.HandleFazerUpload)
 			r.Get("/casamentos/{idCasamento}/fotos/publico", galleryHandler.HandleListarFotosPublicas)

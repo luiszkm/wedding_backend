@@ -35,16 +35,20 @@ Each domain module follows the same 4-layer structure:
 
 ### Domain Modules
 - **Guest**: Guest group management with RSVP functionality using access keys
-- **Gift**: Gift registry with selection tracking and public/private views
+- **Gift**: Gift registry with selection tracking, fractional gifts with quotas, and public/private views
 - **MessageBoard**: Wedding messages with moderation capabilities
 - **Gallery**: Photo management with labeling, favorites, and AWS S3/R2 storage
 - **IAM**: User authentication using JWT tokens
 - **Event**: Wedding event management
 - **Billing**: Stripe integration for subscription plans
+- **Communication**: Communication management with CRUD operations for announcements/comunicados
+- **Itinerary**: Wedding itinerary and schedule management
+- **PageTemplate**: Page template system for event customization
 
 ### Platform Services
 - **Auth**: JWT token generation and middleware (`internal/platform/auth/`)
 - **Storage**: File upload interface with R2/S3 implementation (`internal/platform/storage/`)
+- **Template**: Template engine for page rendering (`internal/platform/template/`)
 - **Web**: Common web utilities (`internal/platform/web/`)
 
 ### Key Design Patterns
@@ -77,8 +81,20 @@ Database schema and seed data in `db/init/` directory:
 - `01-init.sql`: Core table structure
 - `02-seed-plans.sql`: Default subscription plans
 - `03-alter-subscriptions.sql`: Schema migrations
+- `04-add-page-templates.sql`: Page template system tables
+- `05-add-comunicados.sql`: Communication/announcement tables
+- `06-add-fractional-gifts.sql`: Fractional gift system with quotas
+- `07-add-itinerary.sql`: Itinerary and schedule tables
 
 ### Testing Strategy
 - Unit tests in domain layer (e.g., `internal/guest/domain/group_test.go`)
 - Uses testify/assert for assertions
 - Focus on domain logic validation and business rules
+- HTTP integration tests available in `tests/http/` directory
+- Comprehensive API testing covering all modules and authentication flows
+
+### Template System
+- HTML templates located in `templates/` directory
+- Supports partials (header, footer, navigation) in `templates/partials/`
+- Standard templates in `templates/standard/` for different event styles
+- Template engine handles dynamic content rendering for events

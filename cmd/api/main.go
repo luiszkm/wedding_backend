@@ -7,9 +7,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 	"github.com/stripe/stripe-go/v79"
@@ -51,14 +53,13 @@ import (
 	itineraryApp "github.com/luiszkm/wedding_backend/internal/itinerary/application"
 	itineraryInfra "github.com/luiszkm/wedding_backend/internal/itinerary/infrastructure"
 	itineraryREST "github.com/luiszkm/wedding_backend/internal/itinerary/interfaces/rest"
-
 	// pageTemplateApp "github.com/luiszkm/wedding_backend/internal/pagetemplate/application"
 	// pageTemplateREST "github.com/luiszkm/wedding_backend/internal/pagetemplate/interfaces/rest"
 	// "github.com/luiszkm/wedding_backend/internal/platform/template"
 )
 
 func main() {
-	port := ":3000"
+	port := ":8080"
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Aviso: arquivo .env não encontrado.")
@@ -74,6 +75,20 @@ func main() {
 	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
 	// Lemos o segredo do webhook aqui, uma única vez.
 	stripeWebhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
+	
+	// CORS configuration
+	corsAllowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	if corsAllowedOrigins == "" {
+		corsAllowedOrigins = "http://localhost:3000,http://localhost:3001,https://localhost:3000"
+	}
+	corsAllowedMethods := os.Getenv("CORS_ALLOWED_METHODS")
+	if corsAllowedMethods == "" {
+		corsAllowedMethods = "GET,POST,PUT,DELETE,OPTIONS"
+	}
+	corsAllowedHeaders := os.Getenv("CORS_ALLOWED_HEADERS")
+	if corsAllowedHeaders == "" {
+		corsAllowedHeaders = "Accept,Authorization,Content-Type,X-CSRF-Token,X-Requested-With"
+	}
 	dbpool, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Incapaz de conectar ao banco de dados: %v\n", err)
@@ -130,6 +145,18 @@ func main() {
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
+	
+	// CORS configuration
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   strings.Split(corsAllowedOrigins, ","),
+		AllowedMethods:   strings.Split(corsAllowedMethods, ","),
+		AllowedHeaders:   strings.Split(corsAllowedHeaders, ","),
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+		OptionsPassthrough: false,
+	}))
+	
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	authMiddleware := auth.Authenticator(jwtService)
@@ -138,8 +165,8 @@ func main() {
 		// --- Rotas Públicas ---
 		r.Post("/usuarios/registrar", iamHandler.HandleRegistrar)
 		r.Post("/usuarios/login", iamHandler.HandleLogin)
-		r.Get("/casamentos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
-		r.Get("/casamentos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
+		r.Get("/eventos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
+		r.Get("/eventos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
 		r.Get("/eventos/{idEvento}/comunicados", communicationHandler.HandleListarComunicados)
 		r.Get("/eventos/{idEvento}/roteiro", itineraryHandler.HandleGetItinerary) // Rota pública do roteiro
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
@@ -152,15 +179,15 @@ func main() {
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware)
 
-			r.Post("/casamentos/{idCasamento}/grupos-de-convidados", guestHandler.HandleCriarGrupoDeConvidados)
+			r.Post("/eventos/{idCasamento}/grupos-de-convidados", guestHandler.HandleCriarGrupoDeConvidados)
 			r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
 			r.Put("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRevisarGrupo)
 			// rota de presentes
-			r.Post("/casamentos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
+			r.Post("/eventos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
 			r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)
 			//  rota de Recados
 			r.Post("/recados", recadoHandler.HandleDeixarRecado)
-			r.Get("/casamentos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)
+			r.Get("/eventos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)
 			r.Patch("/recados/{idRecado}", recadoHandler.HandleModerarRecado)
 			// rota de Comunicados
 			r.Post("/eventos/{idEvento}/comunicados", communicationHandler.HandleCriarComunicado)
@@ -171,8 +198,8 @@ func main() {
 			r.Put("/roteiro/{idItemRoteiro}", itineraryHandler.HandleUpdateItineraryItem)
 			r.Delete("/roteiro/{idItemRoteiro}", itineraryHandler.HandleDeleteItineraryItem)
 			// rota de Galeria
-			r.Post("/casamentos/{idCasamento}/fotos", galleryHandler.HandleFazerUpload)
-			r.Get("/casamentos/{idCasamento}/fotos/publico", galleryHandler.HandleListarFotosPublicas)
+			r.Post("/eventos/{idCasamento}/fotos", galleryHandler.HandleFazerUpload)
+			r.Get("/eventos/{idCasamento}/fotos/publico", galleryHandler.HandleListarFotosPublicas)
 			r.Post("/fotos/{idFoto}/favoritar", galleryHandler.HandleAlternarFavorito)
 			r.Post("/fotos/{idFoto}/rotulos", galleryHandler.HandleAdicionarRotulo)
 			r.Delete("/fotos/{idFoto}/rotulos/{nomeDoRotulo}", galleryHandler.HandleRemoverRotulo)
@@ -182,8 +209,8 @@ func main() {
 			r.Post("/eventos", eventHandler.HandleCriarEvento)
 			r.Post("/assinaturas", billingHandler.HandleCriarAssinatura)
 
-			// r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)
-			// r.Get("/eventos", eventHandler.HandleListarEventosPorUsuario)
+			r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)
+			r.Get("/eventos", eventHandler.HandleListarEventosPorUsuario)
 
 		})
 	})

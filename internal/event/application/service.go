@@ -39,3 +39,11 @@ func (s *EventService) CriarNovoEvento(ctx context.Context, userID uuid.UUID, no
 	}
 	return novoEvento, nil
 }
+
+func (s *EventService) ObterEventoPorSlug(ctx context.Context, slug string) (*domain.Evento, error) {
+	return s.repo.FindBySlug(ctx, slug)
+}
+
+func (s *EventService) ListarEventosPorUsuario(ctx context.Context, userID uuid.UUID) ([]*domain.Evento, error) {
+	return s.repo.FindByUserID(ctx, userID)
+}

@@ -1,9 +1,9 @@
 # Testes de Autenticação - Wedding API
 
 ### Variáveis
-@baseUrl = http://localhost:3000/v1
-@email = teste@exemplo.com
-@password = minhasenha123
+@baseUrl = http://localhost:8080/v1
+@email = admin@gmail.com
+@password = 123456
 
 ###
 
@@ -12,10 +12,10 @@ POST {{baseUrl}}/usuarios/registrar
 Content-Type: application/json
 
 {
-  "nome": "João Silva",
+  "nome": "luis",
   "email": "{{email}}",
   "telefone": "(11) 99999-9999",
-  "password": "{{password}}"
+  "senha": "{{password}}"
 }
 
 ###
@@ -26,7 +26,7 @@ Content-Type: application/json
 
 {
   "email": "{{email}}",
-  "password": "{{password}}"
+  "senha": "{{password}}"
 }
 
 > {%

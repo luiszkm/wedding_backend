@@ -12,4 +12,5 @@ type EventoRepository interface {
 	Update(ctx context.Context, evento *Evento) error
 	FindBySlug(ctx context.Context, slug string) (*Evento, error)
 	FindByID(ctx context.Context, userID, eventID uuid.UUID) (*Evento, error)
+	FindByUserID(ctx context.Context, userID uuid.UUID) ([]*Evento, error)
 }

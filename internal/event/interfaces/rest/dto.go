@@ -4,8 +4,8 @@ package rest
 import "time"
 
 type CriarEventoRequestDTO struct {
-	Nome    string    `json:"nomeDoEvento"`
-	Data    time.Time `json:"dataDoEvento"`
+	Nome    string    `json:"nome"`
+	Data    time.Time `json:"data"`
 	Tipo    string    `json:"tipo"`
 	UrlSlug string    `json:"urlSlug"`
 }

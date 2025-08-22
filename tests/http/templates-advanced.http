@@ -1,0 +1,506 @@
+# Testes Avançados de Templates - Wedding API
+# Este arquivo contém testes mais específicos para funcionalidades avançadas do sistema de templates
+
+### Variáveis
+@baseUrl = http://localhost:8080/v1
+@authToken = {{authToken}}
+@eventoId = {{eventoId}}
+
+###
+
+# ===============================================
+# SETUP - Criar dados para testes
+# ===============================================
+
+### 1. Criar evento específico para testes de template
+POST {{baseUrl}}/eventos
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "nome": "Casamento Template Test",
+  "data": "2024-12-25T15:00:00Z",
+  "tipo": "CASAMENTO",
+  "urlSlug": "template-test-2024"
+}
+
+> {%
+  client.global.set("templateTestEventId", response.body.id);
+  client.global.set("templateTestSlug", "template-test-2024");
+%}
+
+###
+
+# ===============================================
+# TESTES DE TEMPLATES PADRÃO
+# ===============================================
+
+### 2. Verificar disponibilidade de todos os templates padrão
+GET {{baseUrl}}/templates/disponiveis
+
+> {%
+  client.test("Should have all 3 standard templates", function() {
+    const templates = response.body.templates;
+    const standardTemplates = templates.filter(t => t.tipo === "STANDARD");
+    
+    client.assert(standardTemplates.length >= 3, "Expected at least 3 standard templates");
+    
+    const templateIds = standardTemplates.map(t => t.id);
+    client.assert(templateIds.includes("template_moderno"), "Should include template_moderno");
+    client.assert(templateIds.includes("template_classico"), "Should include template_classico");
+    client.assert(templateIds.includes("template_elegante"), "Should include template_elegante");
+  });
+  
+  client.test("Templates should have complete metadata", function() {
+    const templates = response.body.templates;
+    templates.forEach(template => {
+      client.assert(template.id, "Template should have id");
+      client.assert(template.nome, "Template should have nome");
+      client.assert(template.descricao, "Template should have descricao");
+      client.assert(template.tipo, "Template should have tipo");
+      client.assert(template.paleta_default, "Template should have paleta_default");
+      client.assert(typeof template.suporta_gifts === "boolean", "Should have suporta_gifts boolean");
+      client.assert(typeof template.suporta_gallery === "boolean", "Should have suporta_gallery boolean");
+      client.assert(typeof template.suporta_messages === "boolean", "Should have suporta_messages boolean");
+      client.assert(typeof template.suporta_rsvp === "boolean", "Should have suporta_rsvp boolean");
+    });
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE CONFIGURAÇÃO DE TEMPLATE MODERNO
+# ===============================================
+
+### 3. Configurar evento com template moderno
+PUT {{baseUrl}}/eventos/{{templateTestEventId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_moderno",
+  "paleta_cores": {
+    "primary": "#2563eb",
+    "secondary": "#f1f5f9",
+    "accent": "#10b981",
+    "background": "#ffffff",
+    "text": "#1f2937"
+  }
+}
+
+> {%
+  client.test("Template moderno should be configured successfully", function() {
+    client.assert(response.status === 200, "Expected successful configuration");
+  });
+%}
+
+###
+
+### 4. Renderizar página com template moderno
+GET {{baseUrl}}/eventos/{{templateTestSlug}}/pagina
+
+> {%
+  client.test("Template moderno should render correctly", function() {
+    client.assert(response.status === 200, "Expected successful rendering");
+    const html = response.body;
+    
+    // Verificar elementos específicos do template moderno
+    client.assert(html.includes("Casamento Template Test"), "Should include event name");
+    client.assert(html.includes("hero-section"), "Should include hero section");
+    client.assert(html.includes("var(--primary-color)"), "Should include CSS variables");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE CONFIGURAÇÃO DE TEMPLATE CLÁSSICO
+# ===============================================
+
+### 5. Configurar evento com template clássico
+PUT {{baseUrl}}/eventos/{{templateTestEventId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_classico",
+  "paleta_cores": {
+    "primary": "#8b5a3c",
+    "secondary": "#f5f5dc",
+    "accent": "#d4af37",
+    "background": "#fdfdf8",
+    "text": "#2c1810"
+  }
+}
+
+> {%
+  client.test("Template clássico should be configured successfully", function() {
+    client.assert(response.status === 200, "Expected successful configuration");
+  });
+%}
+
+###
+
+### 6. Renderizar página com template clássico
+GET {{baseUrl}}/eventos/{{templateTestSlug}}/pagina
+
+> {%
+  client.test("Template clássico should render correctly", function() {
+    client.assert(response.status === 200, "Expected successful rendering");
+    const html = response.body;
+    
+    // Verificar elementos específicos do template clássico
+    client.assert(html.includes("Crimson Text"), "Should include Crimson Text font");
+    client.assert(html.includes("Playfair Display"), "Should include Playfair Display font");
+    client.assert(html.includes("ornamental-border"), "Should include ornamental border");
+    client.assert(html.includes("❦"), "Should include ornamental characters");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE CONFIGURAÇÃO DE TEMPLATE ELEGANTE
+# ===============================================
+
+### 7. Configurar evento com template elegante
+PUT {{baseUrl}}/eventos/{{templateTestEventId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_elegante",
+  "paleta_cores": {
+    "primary": "#1a1a2e",
+    "secondary": "#16213e",
+    "accent": "#e94560",
+    "background": "#0f0f23",
+    "text": "#ffffff"
+  }
+}
+
+> {%
+  client.test("Template elegante should be configured successfully", function() {
+    client.assert(response.status === 200, "Expected successful configuration");
+  });
+%}
+
+###
+
+### 8. Renderizar página com template elegante
+GET {{baseUrl}}/eventos/{{templateTestSlug}}/pagina
+
+> {%
+  client.test("Template elegante should render correctly", function() {
+    client.assert(response.status === 200, "Expected successful rendering");
+    const html = response.body;
+    
+    // Verificar elementos específicos do template elegante
+    client.assert(html.includes("Orbitron"), "Should include Orbitron font");
+    client.assert(html.includes("geometric-frame"), "Should include geometric frame");
+    client.assert(html.includes("backdrop-filter"), "Should include backdrop filter effects");
+    client.assert(html.includes("text-shadow"), "Should include text shadow effects");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE CUSTOMIZAÇÃO DE CORES
+# ===============================================
+
+### 9. Testar paleta personalizada no template moderno
+PUT {{baseUrl}}/eventos/{{templateTestEventId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_moderno",
+  "paleta_cores": {
+    "primary": "#ff0000",
+    "secondary": "#00ff00",
+    "accent": "#0000ff",
+    "background": "#ffff00",
+    "text": "#ff00ff"
+  }
+}
+
+###
+
+### 10. Verificar se cores personalizadas são aplicadas
+GET {{baseUrl}}/eventos/{{templateTestSlug}}/pagina
+
+> {%
+  client.test("Custom colors should be applied", function() {
+    client.assert(response.status === 200, "Expected successful rendering");
+    const html = response.body;
+    
+    // Verificar se as cores personalizadas estão presentes no CSS
+    client.assert(html.includes("--primary-color: #ff0000"), "Should include custom primary color");
+    client.assert(html.includes("--accent-color: #0000ff"), "Should include custom accent color");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE VALIDAÇÃO AVANÇADA
+# ===============================================
+
+### 11. Testar cores inválidas (formato hexadecimal inválido)
+PUT {{baseUrl}}/eventos/{{templateTestEventId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_moderno",
+  "paleta_cores": {
+    "primary": "invalid-color",
+    "secondary": "#gggggg",
+    "accent": "#12345",
+    "background": "rgb(255,255,255)",
+    "text": "#000000"
+  }
+}
+
+> {%
+  client.test("Should handle invalid color formats gracefully", function() {
+    // Dependendo da implementação, pode aceitar ou rejeitar
+    // O importante é não quebrar o sistema
+    client.assert(response.status === 200 || response.status === 400, "Should handle gracefully");
+  });
+%}
+
+###
+
+### 12. Testar paleta com cores faltando
+PUT {{baseUrl}}/eventos/{{templateTestEventId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_moderno",
+  "paleta_cores": {
+    "primary": "#2563eb",
+    "secondary": "#f1f5f9"
+    // Faltam accent, background, text
+  }
+}
+
+> {%
+  client.test("Should reject incomplete color palette", function() {
+    client.assert(response.status === 400, "Expected validation error for incomplete palette");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE METADADOS ESPECÍFICOS
+# ===============================================
+
+### 13. Verificar metadados detalhados do template moderno
+GET {{baseUrl}}/templates/template_moderno
+Authorization: Bearer {{authToken}}
+
+> {%
+  client.test("Template moderno metadata should be complete", function() {
+    const template = response.body;
+    client.assert(template.id === "template_moderno", "Should have correct id");
+    client.assert(template.nome === "Moderno", "Should have correct nome");
+    client.assert(template.tipo === "STANDARD", "Should be STANDARD type");
+    
+    // Verificar paleta default específica
+    const paleta = template.paleta_default;
+    client.assert(paleta.primary === "#2563eb", "Should have correct primary color");
+    client.assert(paleta.secondary === "#f1f5f9", "Should have correct secondary color");
+    client.assert(paleta.accent === "#10b981", "Should have correct accent color");
+  });
+%}
+
+###
+
+### 14. Verificar metadados detalhados do template clássico
+GET {{baseUrl}}/templates/template_classico
+Authorization: Bearer {{authToken}}
+
+> {%
+  client.test("Template clássico metadata should be complete", function() {
+    const template = response.body;
+    client.assert(template.id === "template_classico", "Should have correct id");
+    client.assert(template.nome === "Clássico", "Should have correct nome");
+    client.assert(template.tipo === "STANDARD", "Should be STANDARD type");
+    
+    // Verificar paleta default específica
+    const paleta = template.paleta_default;
+    client.assert(paleta.primary === "#8b5a3c", "Should have correct primary color");
+    client.assert(paleta.accent === "#d4af37", "Should have correct accent color");
+  });
+%}
+
+###
+
+### 15. Verificar metadados detalhados do template elegante
+GET {{baseUrl}}/templates/template_elegante
+Authorization: Bearer {{authToken}}
+
+> {%
+  client.test("Template elegante metadata should be complete", function() {
+    const template = response.body;
+    client.assert(template.id === "template_elegante", "Should have correct id");
+    client.assert(template.nome === "Elegante", "Should have correct nome");
+    client.assert(template.tipo === "STANDARD", "Should be STANDARD type");
+    
+    // Verificar paleta default específica
+    const paleta = template.paleta_default;
+    client.assert(paleta.primary === "#1a1a2e", "Should have correct primary color");
+    client.assert(paleta.accent === "#e94560", "Should have correct accent color");
+    client.assert(paleta.background === "#0f0f23", "Should have correct background color");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE PREVIEW AVANÇADOS
+# ===============================================
+
+### 16. Preview com dados customizados
+POST {{baseUrl}}/templates/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "template_id": "template_moderno",
+  "config": {
+    "is_bespoke": false,
+    "standard_template_id": "template_moderno",
+    "paleta_cores": {
+      "primary": "#ff6b35",
+      "secondary": "#f7931e",
+      "accent": "#ffcc02",
+      "background": "#ffffff",
+      "text": "#2c3e50"
+    }
+  }
+}
+
+> {%
+  client.test("Preview with custom colors should work", function() {
+    client.assert(response.status === 200, "Expected successful preview");
+    const html = response.body;
+    
+    client.assert(html.includes("João & Maria - Exemplo"), "Should include example data");
+    client.assert(html.includes("--primary-color: #ff6b35"), "Should include custom colors");
+  });
+%}
+
+###
+
+### 17. Preview de múltiplos templates em sequência
+POST {{baseUrl}}/templates/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "template_id": "template_classico",
+  "config": {
+    "is_bespoke": false,
+    "standard_template_id": "template_classico"
+  }
+}
+
+> {%
+  client.global.set("classico_preview_length", response.body.length);
+%}
+
+###
+
+POST {{baseUrl}}/templates/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "template_id": "template_elegante",
+  "config": {
+    "is_bespoke": false,
+    "standard_template_id": "template_elegante"
+  }
+}
+
+> {%
+  client.test("Multiple template previews should work consistently", function() {
+    client.assert(response.status === 200, "Expected successful preview");
+    
+    const elegante_length = response.body.length;
+    const classico_length = client.global.get("classico_preview_length");
+    
+    // Ambos devem ser documentos HTML válidos
+    client.assert(elegante_length > 1000, "Elegante preview should be substantial");
+    client.assert(classico_length > 1000, "Classico preview should be substantial");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE PERFORMANCE
+# ===============================================
+
+### 18. Teste de renderização rápida (múltiplas chamadas)
+GET {{baseUrl}}/eventos/{{templateTestSlug}}/pagina
+
+> {%
+  client.global.set("render_start_1", new Date().getTime());
+%}
+
+###
+
+GET {{baseUrl}}/eventos/{{templateTestSlug}}/pagina
+
+> {%
+  client.global.set("render_start_2", new Date().getTime());
+%}
+
+###
+
+GET {{baseUrl}}/eventos/{{templateTestSlug}}/pagina
+
+> {%
+  const render_time_3 = new Date().getTime();
+  const render_time_1 = client.global.get("render_start_1");
+  const render_time_2 = client.global.get("render_start_2");
+  
+  client.test("Template rendering should be fast", function() {
+    client.assert(response.status === 200, "Expected successful rendering");
+    
+    // Todas as renderizações devem ser rápidas (menos de 2 segundos)
+    const total_time = render_time_3 - render_time_1;
+    client.assert(total_time < 2000, "Three renders should complete in under 2 seconds");
+  });
+%}
+
+###
+
+# ===============================================
+# CLEANUP - Limpar dados de teste
+# ===============================================
+
+### 19. Cleanup - não implementado ainda
+# DELETE {{baseUrl}}/eventos/{{templateTestEventId}}
+# Authorization: Bearer {{authToken}}
+
+# > {%
+#   client.test("Cleanup should succeed", function() {
+#     client.assert(response.status === 200 || response.status === 404, "Cleanup should work");
+#   });
+# %}
+
+###

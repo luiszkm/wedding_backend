@@ -1,8 +1,8 @@
 # Testes de Eventos - Wedding API
 
 ### Variáveis
-@baseUrl = http://localhost:3000/v1
-@authToken = {{authToken}}
+@baseUrl = http://localhost:8080/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTY0MTkzNTAsImlhdCI6MTc1NTgxNDU1MCwic3ViIjoiZTg5M2EyNjgtYTdjZi00MWZjLWE5Y2YtNWQwNDdlMWVjNjlhIn0.YHmwAX0NL-MtPqOFZuhjyuRSRN9_nNhwDCEMm0VE0qU
 
 ###
 
@@ -13,22 +13,22 @@ Authorization: Bearer {{authToken}}
 
 {
   "nome": "Casamento João & Maria",
-  "data": "2024-06-15",
+  "data": "2024-06-15T15:00:00Z",
   "tipo": "CASAMENTO",
-  "urlSlug": "joao-maria-2024"
+  "urlSlug": "joao-2025"
 }
 
 > {%
-  client.global.set("eventoId", response.body.id);
+  client.global.set("eventoId", response.body.idEvento);
 %}
 
 ###
 
 # Buscar evento por slug (exemplo)
-# GET {{baseUrl}}/eventos/joao-maria-2024
+GET {{baseUrl}}/eventos/joao-maria-2024
 
 ###
 
 # Listar eventos do usuário (exemplo)
-# GET {{baseUrl}}/eventos
-# Authorization: Bearer {{authToken}}
+GET {{baseUrl}}/eventos
+Authorization: Bearer {{authToken}}

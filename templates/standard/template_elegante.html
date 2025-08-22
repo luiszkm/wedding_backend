@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+{{template "partials/header.html" .}}
+
+<body>
+    <!-- Header Principal -->
+    <header class="header">
+        <div class="container">
+            <div class="header-glow">
+                <h1>{{.Event.Nome}}</h1>
+                {{if .Event.Data}}<p class="event-date">{{.Event.Data.Format "02.01.2006"}}</p>{{end}}
+            </div>
+        </div>
+    </header>
+
+    <!-- Navegação -->
+    {{template "partials/navigation.html" .}}
+
+    <!-- Seção Principal -->
+    <main>
+        <section id="inicio" class="hero-section">
+            <div class="hero-background"></div>
+            <div class="container">
+                <div class="hero-content">
+                    <div class="geometric-frame">
+                        <h2>Uma Noite Especial</h2>
+                        <div class="accent-line"></div>
+                        <p class="hero-description">
+                            Junte-se a nós para uma celebração sofisticada e memorável.
+                            {{if .Event.Data}}Uma noite que será lembrada para sempre, {{.Event.Data.Format "02 de Janeiro de 2006"}}.{{end}}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        {{if and .ShowRSVP .GuestGroups}}
+        <!-- Seção RSVP -->
+        <section id="confirmacao" class="rsvp-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Confirmação de Presença</h2>
+                    <div class="glow-line"></div>
+                </div>
+                <p class="section-description">Digite sua chave de acesso exclusiva:</p>
+                <div class="rsvp-form">
+                    <form id="rsvpForm">
+                        <div class="neon-input-container">
+                            <input type="text" id="accessKey" placeholder="Chave de Acesso" required>
+                            <button type="submit">
+                                <span>Confirmar</span>
+                                <div class="button-glow"></div>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </section>
+        {{end}}
+
+        {{if and .ShowGifts .Gifts}}
+        <!-- Lista de Presentes -->
+        <section id="presentes" class="gifts-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Seleção Exclusiva</h2>
+                    <div class="glow-line"></div>
+                </div>
+                <div class="gifts-grid">
+                    {{range .Gifts}}
+                    <div class="gift-card {{if eq .Status "SELECIONADO"}}selected{{end}}">
+                        <div class="gift-inner">
+                            {{if .FotoURL}}
+                            <div class="gift-image">
+                                <img src="{{.FotoURL}}" alt="{{.Nome}}" loading="lazy">
+                                <div class="image-overlay"></div>
+                            </div>
+                            {{end}}
+                            <div class="gift-content">
+                                <h3>{{.Nome}}</h3>
+                                {{if .Descricao}}<p class="gift-description">{{.Descricao}}</p>{{end}}
+                                {{if eq .Status "DISPONIVEL"}}
+                                <button class="gift-select-btn" data-gift-id="{{.ID}}">
+                                    <span>Selecionar</span>
+                                    <div class="btn-glow"></div>
+                                </button>
+                                {{else}}
+                                <span class="gift-selected">Indisponível</span>
+                                {{end}}
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
+
+        {{if and .ShowMessages .Messages}}
+        <!-- Recados -->
+        <section id="recados" class="messages-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Mensagens Especiais</h2>
+                    <div class="glow-line"></div>
+                </div>
+                <div class="messages-container">
+                    {{range .Messages}}
+                    {{if eq .Status "APROVADO"}}
+                    <div class="message-card {{if .EhFavorito}}favorite{{end}}">
+                        <div class="message-border"></div>
+                        <div class="message-content">
+                            <p class="message-text">{{.Texto}}</p>
+                            <p class="message-author">{{.NomeDoAutor}}</p>
+                        </div>
+                    </div>
+                    {{end}}
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
+
+        {{if and .ShowGallery .Photos}}
+        <!-- Galeria de Fotos -->
+        <section id="fotos" class="gallery-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2>Galeria Premium</h2>
+                    <div class="glow-line"></div>
+                </div>
+                <div class="photos-grid">
+                    {{range .Photos}}
+                    <div class="photo-item">
+                        <div class="photo-container">
+                            <img src="{{.UrlPublica}}" alt="Foto do evento" loading="lazy">
+                            <div class="photo-overlay">
+                                {{if .EhFavorito}}<span class="favorite-star">★</span>{{end}}
+                            </div>
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+        </section>
+        {{end}}
+    </main>
+
+    {{template "partials/footer.html" .}}
+
+    <!-- Estilos específicos do template elegante -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--background-color);
+            background-image: 
+                radial-gradient(circle at 20% 80%, rgba(233, 69, 96, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(26, 26, 46, 0.1) 0%, transparent 50%),
+                linear-gradient(135deg, var(--background-color) 0%, var(--secondary-color) 100%);
+            color: var(--text-color);
+        }
+
+        .header {
+            text-align: center;
+            padding: 4rem 0;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 30% 30%, rgba(233, 69, 96, 0.2) 0%, transparent 30%),
+                radial-gradient(circle at 70% 70%, rgba(233, 69, 96, 0.15) 0%, transparent 40%);
+            pointer-events: none;
+        }
+
+        .header-glow {
+            position: relative;
+            z-index: 2;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin: 0;
+            text-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .event-date {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
+            color: var(--accent-color);
+            margin-top: 1rem;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        .hero-section {
+            padding: 5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                linear-gradient(45deg, transparent 30%, rgba(233, 69, 96, 0.05) 50%, transparent 70%),
+                linear-gradient(-45deg, transparent 30%, rgba(26, 26, 46, 0.05) 50%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .geometric-frame {
+            position: relative;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 4rem 3rem;
+            background: rgba(26, 26, 46, 0.8);
+            border: 2px solid var(--accent-color);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .geometric-frame::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--accent-color), transparent, var(--accent-color));
+            border-radius: 20px;
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        .hero-content h2 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.8rem;
+            font-weight: 900;
+            color: var(--text-color);
+            margin-bottom: 1rem;
+            text-shadow: 0 0 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .accent-line {
+            width: 150px;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+            margin: 2rem auto;
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        .hero-description {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 300;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-color);
+            margin-bottom: 1rem;
+            text-shadow: 0 0 15px rgba(233, 69, 96, 0.3);
+        }
+
+        .glow-line {
+            width: 200px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+            margin: 0 auto;
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        .section-description {
+            text-align: center;
+            font-size: 1.1rem;
+            margin-bottom: 3rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-weight: 300;
+        }
+
+        .rsvp-section, .gifts-section, .messages-section, .gallery-section {
+            padding: 5rem 0;
+        }
+
+        .rsvp-form {
+            text-align: center;
+        }
+
+        .neon-input-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .rsvp-form input {
+            padding: 1.2rem 2rem;
+            border: 2px solid var(--accent-color);
+            border-radius: 30px;
+            background: rgba(26, 26, 46, 0.7);
+            color: var(--text-color);
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            min-width: 300px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
+
+        .rsvp-form input:focus {
+            outline: none;
+            box-shadow: 0 0 20px rgba(233, 69, 96, 0.5);
+        }
+
+        .rsvp-form button {
+            position: relative;
+            padding: 1.2rem 3rem;
+            background: linear-gradient(45deg, var(--accent-color), #ff4757);
+            color: var(--text-color);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .button-glow {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .rsvp-form button:hover .button-glow {
+            left: 100%;
+        }
+
+        .gifts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2.5rem;
+        }
+
+        .gift-card {
+            background: rgba(26, 26, 46, 0.6);
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(233, 69, 96, 0.3);
+            transition: all 0.4s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .gift-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            border-color: var(--accent-color);
+            box-shadow: 0 20px 40px rgba(233, 69, 96, 0.2);
+        }
+
+        .gift-inner {
+            position: relative;
+            height: 100%;
+        }
+
+        .gift-image {
+            position: relative;
+            height: 250px;
+            overflow: hidden;
+        }
+
+        .gift-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+
+        .gift-card:hover .gift-image img {
+            transform: scale(1.1);
+        }
+
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(233, 69, 96, 0.2), rgba(26, 26, 46, 0.2));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .gift-card:hover .image-overlay {
+            opacity: 1;
+        }
+
+        .gift-content {
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .gift-content h3 {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.4rem;
+            color: var(--text-color);
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        .gift-description {
+            font-weight: 300;
+            line-height: 1.6;
+            margin-bottom: 2rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .gift-card.selected {
+            opacity: 0.5;
+            background: rgba(139, 90, 60, 0.3);
+        }
+
+        .gift-select-btn {
+            position: relative;
+            background: linear-gradient(45deg, var(--accent-color), #ff4757);
+            color: var(--text-color);
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .btn-glow {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .gift-select-btn:hover .btn-glow {
+            left: 100%;
+        }
+
+        .gift-selected {
+            background: rgba(139, 90, 60, 0.8);
+            color: var(--text-color);
+            padding: 1rem 2rem;
+            border-radius: 25px;
+            display: inline-block;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .messages-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+        }
+
+        .message-card {
+            position: relative;
+            background: rgba(26, 26, 46, 0.7);
+            padding: 2.5rem;
+            border-radius: 20px;
+            border: 1px solid rgba(233, 69, 96, 0.2);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .message-card:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 10px 30px rgba(233, 69, 96, 0.2);
+        }
+
+        .message-card.favorite {
+            border-color: var(--accent-color);
+            background: rgba(233, 69, 96, 0.1);
+        }
+
+        .message-border {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(180deg, var(--accent-color), transparent);
+            border-radius: 20px 0 0 20px;
+        }
+
+        .message-content {
+            padding-left: 1rem;
+        }
+
+        .message-text {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            margin-bottom: 1.5rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 300;
+        }
+
+        .message-author {
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            color: var(--accent-color);
+            text-align: right;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .photos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .photo-item {
+            aspect-ratio: 1;
+        }
+
+        .photo-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid rgba(233, 69, 96, 0.3);
+            transition: all 0.4s ease;
+        }
+
+        .photo-container:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 15px 35px rgba(233, 69, 96, 0.3);
+            transform: scale(1.02);
+        }
+
+        .photo-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+
+        .photo-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, rgba(233, 69, 96, 0.3), rgba(26, 26, 46, 0.3));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .photo-container:hover .photo-overlay {
+            opacity: 1;
+        }
+
+        .favorite-star {
+            font-size: 2rem;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px var(--accent-color);
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-content h2 {
+                font-size: 2rem;
+            }
+
+            .geometric-frame {
+                margin: 0 1rem;
+                padding: 2.5rem 2rem;
+            }
+
+            .neon-input-container {
+                flex-direction: column;
+                align-items: stretch;
+                max-width: 350px;
+                margin: 0 auto;
+            }
+
+            .rsvp-form input {
+                min-width: auto;
+                width: 100%;
+            }
+
+            .gifts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .messages-container {
+                grid-template-columns: 1fr;
+            }
+
+            .photos-grid {
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            }
+        }
+    </style>
+
+    <!-- Scripts para interatividade -->
+    <script>
+        // Smooth scroll para navegação
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Form RSVP
+        const rsvpForm = document.getElementById('rsvpForm');
+        if (rsvpForm) {
+            rsvpForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const accessKey = document.getElementById('accessKey').value;
+                
+                if (!accessKey.trim()) {
+                    alert('Por favor, digite sua chave de acesso.');
+                    return;
+                }
+                
+                // Aqui seria feita a chamada para a API de RSVP
+                alert('Funcionalidade RSVP será implementada em breve!');
+            });
+        }
+
+        // Seleção de presentes
+        document.querySelectorAll('.gift-select-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const giftId = this.getAttribute('data-gift-id');
+                
+                // Aqui seria feita a chamada para a API de seleção de presentes
+                alert('Funcionalidade de seleção de presentes será implementada em breve!');
+            });
+        });
+    </script>
+</body>
+</html>

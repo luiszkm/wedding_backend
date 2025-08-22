@@ -1,0 +1,509 @@
+# Testes de Templates - Wedding API
+
+### Variáveis
+@baseUrl = http://localhost:8080/v1
+@authToken = {{authToken}}
+@eventoId = {{eventoId}}
+
+###
+
+# ===============================================
+# ROTAS PÚBLICAS - Templates
+# ===============================================
+
+### 1. Listar templates disponíveis (PÚBLICO)
+GET {{baseUrl}}/templates/disponiveis
+Content-Type: application/json
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+  
+  client.test("Response should contain templates array", function() {
+    const responseBody = response.body;
+    client.assert(Array.isArray(responseBody.templates), "Expected templates array");
+    client.assert(responseBody.total >= 0, "Expected total count");
+  });
+  
+  client.test("Templates should have required fields", function() {
+    const responseBody = response.body;
+    if (responseBody.templates.length > 0) {
+      const template = responseBody.templates[0];
+      client.assert(template.id, "Template should have id");
+      client.assert(template.nome, "Template should have nome");
+      client.assert(template.tipo, "Template should have tipo");
+    }
+  });
+%}
+
+###
+
+### 2. Renderizar página pública de evento com template
+GET {{baseUrl}}/eventos/joao-maria-2024/pagina
+Content-Type: text/html
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+  
+  client.test("Content-Type should be text/html", function() {
+    const contentType = response.headers.valueOf("Content-Type");
+    client.assert(contentType.includes("text/html"), "Expected HTML content type");
+  });
+  
+  client.test("Response should contain HTML", function() {
+    const body = response.body;
+    client.assert(body.includes("<!DOCTYPE html>"), "Expected HTML document");
+    client.assert(body.includes("<html"), "Expected HTML tag");
+  });
+%}
+
+###
+
+### 3. Renderizar página com slug inexistente (deve retornar 404)
+GET {{baseUrl}}/eventos/evento-inexistente/pagina
+Content-Type: text/html
+
+> {%
+  client.test("Status should be 404", function() {
+    client.assert(response.status === 404, "Expected status 404 for non-existent event");
+  });
+%}
+
+###
+
+# ===============================================
+# ROTAS PROTEGIDAS - Templates (Requerem Auth)
+# ===============================================
+
+### 4. Obter metadados de template específico
+GET {{baseUrl}}/templates/template_moderno
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+  
+  client.test("Template metadata should have required fields", function() {
+    const template = response.body;
+    client.assert(template.id === "template_moderno", "Expected template_moderno id");
+    client.assert(template.nome, "Template should have nome");
+    client.assert(template.descricao, "Template should have descricao");
+    client.assert(template.tipo, "Template should have tipo");
+    client.assert(template.paleta_default, "Template should have paleta_default");
+  });
+%}
+
+###
+
+### 5. Obter metadados de template inexistente
+GET {{baseUrl}}/templates/template_inexistente
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+> {%
+  client.test("Status should be 404", function() {
+    client.assert(response.status === 404, "Expected status 404 for non-existent template");
+  });
+%}
+
+###
+
+### 6. Atualizar template de evento para template padrão
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_classico",
+  "paleta_cores": {
+    "primary": "#8b5a3c",
+    "secondary": "#f5f5dc",
+    "accent": "#d4af37",
+    "background": "#fdfdf8",
+    "text": "#2c1810"
+  }
+}
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+  
+  client.test("Response should confirm update", function() {
+    const responseBody = response.body;
+    client.assert(responseBody.message, "Expected success message");
+  });
+%}
+
+###
+
+### 7. Atualizar template para template elegante
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_elegante",
+  "paleta_cores": {
+    "primary": "#1a1a2e",
+    "secondary": "#16213e",
+    "accent": "#e94560",
+    "background": "#0f0f23",
+    "text": "#ffffff"
+  }
+}
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+%}
+
+###
+
+### 8. Tentar atualizar template com dados inválidos
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_inexistente",
+  "paleta_cores": {
+    "primary": "#invalid-color"
+  }
+}
+
+> {%
+  client.test("Status should be 400", function() {
+    client.assert(response.status === 400, "Expected status 400 for invalid data");
+  });
+%}
+
+###
+
+### 9. Tentar atualizar template sem autenticação
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_moderno"
+}
+
+> {%
+  client.test("Status should be 401", function() {
+    client.assert(response.status === 401, "Expected status 401 for unauthorized access");
+  });
+%}
+
+###
+
+### 10. Prévia de template com dados de exemplo
+POST {{baseUrl}}/templates/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "template_id": "template_moderno",
+  "config": {
+    "is_bespoke": false,
+    "standard_template_id": "template_moderno",
+    "paleta_cores": {
+      "primary": "#2563eb",
+      "secondary": "#f1f5f9",
+      "accent": "#10b981",
+      "background": "#ffffff",
+      "text": "#1f2937"
+    }
+  }
+}
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+  
+  client.test("Content-Type should be text/html", function() {
+    const contentType = response.headers.valueOf("Content-Type");
+    client.assert(contentType.includes("text/html"), "Expected HTML content type");
+  });
+  
+  client.test("Preview should contain HTML", function() {
+    const body = response.body;
+    client.assert(body.includes("<!DOCTYPE html>"), "Expected HTML document");
+    client.assert(body.includes("João & Maria - Exemplo"), "Expected example event name");
+  });
+%}
+
+###
+
+### 11. Prévia de template clássico
+POST {{baseUrl}}/templates/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "template_id": "template_classico",
+  "config": {
+    "is_bespoke": false,
+    "standard_template_id": "template_classico",
+    "paleta_cores": {
+      "primary": "#8b5a3c",
+      "secondary": "#f5f5dc",
+      "accent": "#d4af37",
+      "background": "#fdfdf8",
+      "text": "#2c1810"
+    }
+  }
+}
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+%}
+
+###
+
+### 12. Prévia de template elegante
+POST {{baseUrl}}/templates/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "template_id": "template_elegante",
+  "config": {
+    "is_bespoke": false,
+    "standard_template_id": "template_elegante",
+    "paleta_cores": {
+      "primary": "#1a1a2e",
+      "secondary": "#16213e",
+      "accent": "#e94560",
+      "background": "#0f0f23",
+      "text": "#ffffff"
+    }
+  }
+}
+
+> {%
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+%}
+
+###
+
+### 13. Tentar prévia com template inexistente
+POST {{baseUrl}}/templates/preview
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "template_id": "template_inexistente",
+  "config": {
+    "is_bespoke": false,
+    "standard_template_id": "template_inexistente"
+  }
+}
+
+> {%
+  client.test("Status should be 400 or 404", function() {
+    client.assert(response.status === 400 || response.status === 404, "Expected error status for invalid template");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE TEMPLATE BESPOKE (PERSONALIZADO)
+# ===============================================
+
+### 14. Atualizar para template bespoke (simulado)
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": true,
+  "bespoke_file_name": "cliente_premium.html",
+  "paleta_cores": {
+    "primary": "#ff6b35",
+    "secondary": "#f7931e",
+    "accent": "#ffcc02",
+    "background": "#ffffff",
+    "text": "#2c3e50"
+  }
+}
+
+> {%
+  client.test("Should handle bespoke template appropriately", function() {
+    // Se o arquivo não existir, deve retornar erro
+    // Se existir, deve funcionar normalmente
+    client.assert(response.status === 400 || response.status === 200, "Expected appropriate status for bespoke template");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE PERFORMANCE E CACHE
+# ===============================================
+
+### 15. Testar cache de templates - primeira chamada
+GET {{baseUrl}}/templates/disponiveis
+Content-Type: application/json
+
+> {%
+  client.global.set("first_call_time", new Date().getTime());
+%}
+
+###
+
+### 16. Testar cache de templates - segunda chamada (deve ser mais rápida)
+GET {{baseUrl}}/templates/disponiveis
+Content-Type: application/json
+
+> {%
+  const secondCallTime = new Date().getTime();
+  const firstCallTime = client.global.get("first_call_time");
+  
+  client.test("Status should be 200", function() {
+    client.assert(response.status === 200, "Expected status 200");
+  });
+  
+  client.test("Response should be consistent", function() {
+    const responseBody = response.body;
+    client.assert(Array.isArray(responseBody.templates), "Expected templates array");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE VALIDAÇÃO DE DADOS
+# ===============================================
+
+### 17. Testar validação de paleta de cores incompleta
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_moderno",
+  "paleta_cores": {
+    "primary": "#2563eb"
+    // Faltam cores obrigatórias
+  }
+}
+
+> {%
+  client.test("Should reject incomplete color palette", function() {
+    client.assert(response.status === 400, "Expected status 400 for incomplete color palette");
+  });
+%}
+
+###
+
+### 18. Testar template update sem template_id
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "paleta_cores": {
+    "primary": "#2563eb",
+    "secondary": "#f1f5f9",
+    "accent": "#10b981",
+    "background": "#ffffff",
+    "text": "#1f2937"
+  }
+}
+
+> {%
+  client.test("Should reject missing template_id", function() {
+    client.assert(response.status === 400, "Expected status 400 for missing template_id");
+  });
+%}
+
+###
+
+### 19. Testar JSON malformado
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "template_moderno",
+  "paleta_cores": {
+    "primary": "#2563eb",
+    "secondary": "#f1f5f9"
+    // JSON inválido (vírgula faltando)
+  }
+}
+
+> {%
+  client.test("Should reject malformed JSON", function() {
+    client.assert(response.status === 400, "Expected status 400 for malformed JSON");
+  });
+%}
+
+###
+
+# ===============================================
+# TESTES DE INTEGRAÇÃO
+# ===============================================
+
+### 20. Fluxo completo: Listar -> Escolher -> Atualizar -> Renderizar
+# Primeiro, listar templates disponíveis
+GET {{baseUrl}}/templates/disponiveis
+
+> {%
+  const templates = response.body.templates;
+  if (templates.length > 0) {
+    client.global.set("selected_template", templates[0].id);
+  }
+%}
+
+###
+
+# Escolher o primeiro template e atualizar evento
+PUT {{baseUrl}}/eventos/{{eventoId}}/template
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "is_bespoke": false,
+  "standard_template_id": "{{selected_template}}",
+  "paleta_cores": {
+    "primary": "#2563eb",
+    "secondary": "#f1f5f9",
+    "accent": "#10b981",
+    "background": "#ffffff",
+    "text": "#1f2937"
+  }
+}
+
+###
+
+# Por fim, renderizar a página para verificar se a atualização funcionou
+GET {{baseUrl}}/eventos/joao-maria-2024/pagina
+
+> {%
+  client.test("Integration test - page should render successfully", function() {
+    client.assert(response.status === 200, "Expected successful page rendering");
+    client.assert(response.body.includes("<!DOCTYPE html>"), "Expected HTML content");
+  });
+%}
+
+###

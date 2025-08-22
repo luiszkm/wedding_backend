@@ -52,7 +52,7 @@ func (h *IAMHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := h.service.Login(r.Context(), reqDTO.Email, reqDTO.Senha)
+	token, usuario, err := h.service.LoginWithUserInfo(r.Context(), reqDTO.Email, reqDTO.Senha)
 	if err != nil {
 		if errors.Is(err, domain.ErrCredenciaisInvalidas) {
 			web.RespondError(w, r, "AUTENTICACAO_FALHOU", err.Error(), http.StatusUnauthorized)
@@ -80,7 +80,15 @@ func (h *IAMHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",                  // O cookie será válido para todo o site
 	})
 
-	// 3. A resposta agora não precisa mais enviar o token no corpo.
-	// Podemos enviar uma mensagem de sucesso ou os dados do usuário.
-	web.Respond(w, r, map[string]string{"status": "login bem-sucedido"}, http.StatusOK)
+	// 3. Resposta híbrida: cookie para browsers + token no corpo para APIs
+	response := map[string]interface{}{
+		"status": "login bem-sucedido",
+		"token":  token, // Para clientes API que precisam do token
+		"user": map[string]interface{}{
+			"id":    usuario.ID().String(),
+			"nome":  usuario.Nome(),
+			"email": usuario.Email(),
+		},
+	}
+	web.Respond(w, r, response, http.StatusOK)
 }

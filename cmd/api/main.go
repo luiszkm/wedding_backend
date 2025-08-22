@@ -53,9 +53,10 @@ import (
 	itineraryApp "github.com/luiszkm/wedding_backend/internal/itinerary/application"
 	itineraryInfra "github.com/luiszkm/wedding_backend/internal/itinerary/infrastructure"
 	itineraryREST "github.com/luiszkm/wedding_backend/internal/itinerary/interfaces/rest"
-	// pageTemplateApp "github.com/luiszkm/wedding_backend/internal/pagetemplate/application"
-	// pageTemplateREST "github.com/luiszkm/wedding_backend/internal/pagetemplate/interfaces/rest"
-	// "github.com/luiszkm/wedding_backend/internal/platform/template"
+
+	pageTemplateApp "github.com/luiszkm/wedding_backend/internal/pagetemplate/application"
+	pageTemplateREST "github.com/luiszkm/wedding_backend/internal/pagetemplate/interfaces/rest"
+	"github.com/luiszkm/wedding_backend/internal/platform/template"
 )
 
 func main() {
@@ -75,7 +76,7 @@ func main() {
 	stripe.Key = os.Getenv("STRIPE_SECRET_KEY")
 	// Lemos o segredo do webhook aqui, uma única vez.
 	stripeWebhookSecret := os.Getenv("STRIPE_WEBHOOK_SECRET")
-	
+
 	// CORS configuration
 	corsAllowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if corsAllowedOrigins == "" {
@@ -105,6 +106,7 @@ func main() {
 	// --- Inicialização dos Serviços ---
 	jwtService := auth.NewJWTService(jwtSecret)
 	paymentGateway := billingInfra.NewStripeGateway(stripe.Key)
+	templateEngine := template.NewGoTemplateEngine("templates")
 
 	// ...
 
@@ -131,6 +133,7 @@ func main() {
 	billingService := billingApp.NewBillingService(planoRepo, billingRepo, paymentGateway)
 	communicationService := communicationApp.NewCommunicationService(communicationRepo, eventRepo)
 	itineraryService := itineraryApp.NewItineraryService(itineraryRepo)
+	pageTemplateService := pageTemplateApp.NewPageTemplateService(templateEngine, eventRepo, guestRepo, presenteRepo, recadoRepo, fotoRepo)
 
 	// --- Handlers ---
 	guestHandler := guestREST.NewGuestHandler(guestService)
@@ -142,21 +145,22 @@ func main() {
 	billingHandler := billingREST.NewBillingHandler(billingService, stripeWebhookSecret)
 	communicationHandler := communicationREST.NewCommunicationHandler(communicationService)
 	itineraryHandler := itineraryREST.NewItineraryHandler(itineraryService)
+	pageTemplateHandler := pageTemplateREST.NewPageTemplateHandler(pageTemplateService)
 
 	// --- Roteador e Rotas ---
 	r := chi.NewRouter()
-	
+
 	// CORS configuration
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   strings.Split(corsAllowedOrigins, ","),
-		AllowedMethods:   strings.Split(corsAllowedMethods, ","),
-		AllowedHeaders:   strings.Split(corsAllowedHeaders, ","),
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
+		AllowedOrigins:     strings.Split(corsAllowedOrigins, ","),
+		AllowedMethods:     strings.Split(corsAllowedMethods, ","),
+		AllowedHeaders:     strings.Split(corsAllowedHeaders, ","),
+		ExposedHeaders:     []string{"Link"},
+		AllowCredentials:   true,
+		MaxAge:             300,
 		OptionsPassthrough: false,
 	}))
-	
+
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	authMiddleware := auth.Authenticator(jwtService)
@@ -168,7 +172,9 @@ func main() {
 		r.Get("/eventos/{idCasamento}/recados/publico", recadoHandler.HandleListarRecadosPublicos)
 		r.Get("/eventos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
 		r.Get("/eventos/{idEvento}/comunicados", communicationHandler.HandleListarComunicados)
-		r.Get("/eventos/{idEvento}/roteiro", itineraryHandler.HandleGetItinerary) // Rota pública do roteiro
+		r.Get("/eventos/{idEvento}/roteiro", itineraryHandler.HandleGetItinerary)         // Rota pública do roteiro
+		r.Get("/eventos/{urlSlug}/pagina", pageTemplateHandler.HandleRenderPublicPage)    // Página pública do evento
+		r.Get("/templates/disponiveis", pageTemplateHandler.HandleListAvailableTemplates) // Templates disponíveis
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
 		r.Get("/planos", billingHandler.HandleListarPlanos)            // Nova rota pública
 		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook) // <-- Rota do Webhook
@@ -211,6 +217,11 @@ func main() {
 
 			r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)
 			r.Get("/eventos", eventHandler.HandleListarEventosPorUsuario)
+
+			// rotas de templates
+			r.Put("/eventos/{eventId}/template", pageTemplateHandler.HandleUpdateEventTemplate)
+			r.Get("/templates/{templateId}", pageTemplateHandler.HandleGetTemplateMetadata)
+			r.Post("/templates/preview", pageTemplateHandler.HandlePreviewTemplate)
 
 		})
 	})

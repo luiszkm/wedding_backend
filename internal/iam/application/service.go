@@ -70,3 +70,29 @@ func (s *IAMService) Login(ctx context.Context, email, senha string) (string, er
 
 	return token, nil
 }
+
+// LoginWithUserInfo retorna tanto o token quanto informações do usuário
+func (s *IAMService) LoginWithUserInfo(ctx context.Context, email, senha string) (string, *domain.Usuario, error) {
+	// 1. Busca o usuário pelo email.
+	usuario, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, domain.ErrUsuarioNaoEncontrado) {
+			// Não diferenciar "usuário não existe" de "senha incorreta" por segurança.
+			return "", nil, domain.ErrCredenciaisInvalidas
+		}
+		return "", nil, err // Outro erro técnico
+	}
+
+	// 2. Verifica se a senha fornecida corresponde ao hash armazenado.
+	if !usuario.VerificarSenha(senha) {
+		return "", nil, domain.ErrCredenciaisInvalidas
+	}
+
+	// 3. Gera o token JWT.
+	token, err := s.jwtService.GenerateToken(usuario.ID())
+	if err != nil {
+		return "", nil, fmt.Errorf("falha ao gerar token de acesso: %w", err)
+	}
+
+	return token, usuario, nil
+}

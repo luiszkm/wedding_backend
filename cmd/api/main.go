@@ -217,6 +217,7 @@ func main() {
 
 			r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)
 			r.Get("/eventos", eventHandler.HandleListarEventosPorUsuario)
+			r.Get("/eventos/id/{id}", eventHandler.HandleObterEventoPorID)
 
 			// rotas de templates
 			r.Put("/eventos/{eventId}/template", pageTemplateHandler.HandleUpdateEventTemplate)

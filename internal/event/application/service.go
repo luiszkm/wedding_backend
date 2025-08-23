@@ -47,3 +47,7 @@ func (s *EventService) ObterEventoPorSlug(ctx context.Context, slug string) (*do
 func (s *EventService) ListarEventosPorUsuario(ctx context.Context, userID uuid.UUID) ([]*domain.Evento, error) {
 	return s.repo.FindByUserID(ctx, userID)
 }
+
+func (s *EventService) ObterEventoPorID(ctx context.Context, userID, eventID uuid.UUID) (*domain.Evento, error) {
+	return s.repo.FindByID(ctx, userID, eventID)
+}

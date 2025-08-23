@@ -2,7 +2,7 @@
 # Inclui testes para presentes integrais e fracionados (ADR-004)
 
 ### Variáveis
-@baseUrl = http://localhost:3000/v1
+@baseUrl = http://localhost:8080/v1
 @authToken = {{authToken}}
 @eventoId = {{eventoId}}
 

@@ -29,6 +29,13 @@ GET {{baseUrl}}/eventos/joao-maria-2024
 
 ###
 
+GET {{baseUrl}}/eventos/id/0aadab2e-bfc6-4610-9c84-7b2c02343463
+Authorization: Bearer {{authToken}}
+
+
+
+###
+
 # Listar eventos do usuário (exemplo)
 GET {{baseUrl}}/eventos
 Authorization: Bearer {{authToken}}

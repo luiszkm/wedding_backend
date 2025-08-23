@@ -107,3 +107,39 @@ func (h *EventHandler) HandleListarEventosPorUsuario(w http.ResponseWriter, r *h
 
 	web.Respond(w, r, eventosDTO, http.StatusOK)
 }
+
+func (h *EventHandler) HandleObterEventoPorID(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
+
+	eventIDStr := chi.URLParam(r, "id")
+	if eventIDStr == "" {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do evento é obrigatório.", http.StatusBadRequest)
+		return
+	}
+
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		web.RespondError(w, r, "ID_INVALIDO", "O ID do evento deve ser um UUID válido.", http.StatusBadRequest)
+		return
+	}
+
+	evento, err := h.service.ObterEventoPorID(r.Context(), userID, eventID)
+	if err != nil {
+		log.Printf("ERRO ao buscar evento por ID: %v", err)
+		web.RespondError(w, r, "EVENTO_NAO_ENCONTRADO", "Evento não encontrado.", http.StatusNotFound)
+		return
+	}
+
+	respDTO := EventoResponseDTO{
+		ID:       evento.ID().String(),
+		Nome:     evento.Nome(),
+		Data:     evento.Data(),
+		Tipo:     string(evento.Tipo()),
+		UrlSlug:  evento.UrlSlug(),
+	}
+	web.Respond(w, r, respDTO, http.StatusOK)
+}

@@ -47,3 +47,39 @@ type ConvidadoRevisaoDTO struct {
 	ID   *string `json:"id"` // Ponteiro para string para poder ser nulo
 	Nome string  `json:"nome"`
 }
+
+// ListarGruposResponseDTO é o contrato de saída para listar grupos
+type ListarGruposResponseDTO struct {
+	Grupos []GrupoResumoDTO `json:"grupos"`
+	Total  int              `json:"total"`
+}
+
+// GrupoResumoDTO representa um grupo resumido na listagem
+type GrupoResumoDTO struct {
+	ID                    string `json:"id"`
+	ChaveDeAcesso         string `json:"chaveDeAcesso"`
+	TotalConvidados       int    `json:"totalConvidados"`
+	ConvidadosConfirmados int    `json:"convidadosConfirmados"`
+	ConvidadosRecusados   int    `json:"convidadosRecusados"`
+	ConvidadosPendentes   int    `json:"convidadosPendentes"`
+}
+
+// GrupoDetalhadoDTO representa um grupo com todos os detalhes
+type GrupoDetalhadoDTO struct {
+	ID            string         `json:"id"`
+	IDEvento      string         `json:"idEvento"`
+	ChaveDeAcesso string         `json:"chaveDeAcesso"`
+	Convidados    []ConvidadoDTO `json:"convidados"`
+}
+
+// EstatisticasRSVPDTO representa as estatísticas de RSVP
+type EstatisticasRSVPDTO struct {
+	TotalGrupos           int     `json:"totalGrupos"`
+	TotalConvidados       int     `json:"totalConvidados"`
+	ConvidadosConfirmados int     `json:"convidadosConfirmados"`
+	ConvidadosRecusados   int     `json:"convidadosRecusados"`
+	ConvidadosPendentes   int     `json:"convidadosPendentes"`
+	PercentualConfirmado  float64 `json:"percentualConfirmado"`
+	PercentualRecusado    float64 `json:"percentualRecusado"`
+	PercentualPendente    float64 `json:"percentualPendente"`
+}

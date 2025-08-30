@@ -14,7 +14,7 @@ Authorization: Bearer {{authToken}}
 
 {
   "chaveDeAcesso": "padrinhos123",
-  "convidados": [
+  "nomesDosConvidados": [
     "Carlos Silva",
     "Ana Santos"
   ]
@@ -34,7 +34,7 @@ Authorization: Bearer {{authToken}}
 
 {
   "chaveDeAcesso": "familia456",
-  "convidados": [
+  "nomesDosConvidados": [
     "Roberto Silva",
     "Maria Silva",
     "Pedro Silva"
@@ -59,14 +59,64 @@ Content-Type: application/json
 
 {
   "chaveDeAcesso": "{{chaveAcesso}}",
-  "confirmacoes": [
+  "respostas": [
     {
-      "nome": "Carlos Silva",
+      "idConvidado": "{{convidado1Id}}",
       "status": "CONFIRMADO"
     },
     {
-      "nome": "Ana Santos", 
+      "idConvidado": "{{convidado2Id}}", 
       "status": "CONFIRMADO"
     }
   ]
 }
+
+###
+
+# Revisar grupo de convidados
+PUT {{baseUrl}}/grupos-de-convidados/{{grupoId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "chaveDeAcesso": "padrinhos-atualizados",
+  "convidados": [
+    {
+      "id": "{{convidado1Id}}",
+      "nome": "Carlos Silva Santos"
+    },
+    {
+      "nome": "Pedro Novo Convidado"
+    }
+  ]
+}
+
+###
+
+# Listar grupos de um evento
+GET {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
+Authorization: Bearer {{authToken}}
+
+###
+
+# Listar grupos com filtro por status
+GET {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados?status=CONFIRMADO
+Authorization: Bearer {{authToken}}
+
+###
+
+# Obter grupo específico por ID (admin)
+GET {{baseUrl}}/grupos-de-convidados/{{grupoId}}
+Authorization: Bearer {{authToken}}
+
+###
+
+# Obter estatísticas de RSVP do evento
+GET {{baseUrl}}/eventos/{{eventoId}}/rsvp-stats
+Authorization: Bearer {{authToken}}
+
+###
+
+# Remover grupo (somente se todos os convidados estão pendentes)
+DELETE {{baseUrl}}/grupos-de-convidados/{{grupoId}}
+Authorization: Bearer {{authToken}}

@@ -181,7 +181,7 @@ func (h *GuestHandler) HandleRevisarGrupo(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	err = h.service.RevisarGrupo(r.Context(), grupoID, userID, reqDTO.ChaveDeAcesso, convidadosDominio)
+	err = h.service.RevisarGrupo(r.Context(), userID, grupoID, reqDTO.ChaveDeAcesso, convidadosDominio)
 	// ... (Lógica de tratamento de erro similar aos outros handlers) ...
 	// ...
 	// Exemplo:
@@ -196,4 +196,176 @@ func (h *GuestHandler) HandleRevisarGrupo(w http.ResponseWriter, r *http.Request
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *GuestHandler) HandleListarGruposPorEvento(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente ou inválido no token.", http.StatusUnauthorized)
+		return
+	}
+
+	eventIDStr := chi.URLParam(r, "idEvento")
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do evento é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	// Parâmetro opcional de filtro por status
+	statusFilter := r.URL.Query().Get("status")
+
+	grupos, err := h.service.ListarGruposPorEvento(r.Context(), userID, eventID, statusFilter)
+	if err != nil {
+		log.Printf("ERRO: %v\n", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao processar sua requisição.", http.StatusInternalServerError)
+		return
+	}
+
+	// Mapear para DTOs
+	gruposDTO := make([]GrupoResumoDTO, len(grupos))
+	for i, grupo := range grupos {
+		confirmados := 0
+		recusados := 0
+		pendentes := 0
+
+		for _, convidado := range grupo.Convidados() {
+			switch convidado.StatusRSVP() {
+			case "CONFIRMADO":
+				confirmados++
+			case "RECUSADO":
+				recusados++
+			case "PENDENTE":
+				pendentes++
+			}
+		}
+
+		gruposDTO[i] = GrupoResumoDTO{
+			ID:                    grupo.ID().String(),
+			ChaveDeAcesso:         grupo.ChaveDeAcesso(),
+			TotalConvidados:       len(grupo.Convidados()),
+			ConvidadosConfirmados: confirmados,
+			ConvidadosRecusados:   recusados,
+			ConvidadosPendentes:   pendentes,
+		}
+	}
+
+	respDTO := ListarGruposResponseDTO{
+		Grupos: gruposDTO,
+		Total:  len(gruposDTO),
+	}
+
+	web.Respond(w, r, respDTO, http.StatusOK)
+}
+
+func (h *GuestHandler) HandleObterGrupoPorID(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente ou inválido no token.", http.StatusUnauthorized)
+		return
+	}
+
+	groupIDStr := chi.URLParam(r, "idGrupo")
+	groupID, err := uuid.Parse(groupIDStr)
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do grupo é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	grupo, err := h.service.ObterGrupoPorID(r.Context(), userID, groupID)
+	if err != nil {
+		if errors.Is(err, domain.ErrGrupoNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Grupo não encontrado.", http.StatusNotFound)
+			return
+		}
+		log.Printf("ERRO: %v\n", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao processar sua requisição.", http.StatusInternalServerError)
+		return
+	}
+
+	// Mapear para DTO detalhado
+	convidadosDTO := make([]ConvidadoDTO, len(grupo.Convidados()))
+	for i, c := range grupo.Convidados() {
+		convidadosDTO[i] = ConvidadoDTO{
+			ID:         c.ID().String(),
+			Nome:       c.Nome(),
+			StatusRSVP: c.StatusRSVP(),
+		}
+	}
+
+	respDTO := GrupoDetalhadoDTO{
+		ID:            grupo.ID().String(),
+		IDEvento:      grupo.IDCasamento().String(),
+		ChaveDeAcesso: grupo.ChaveDeAcesso(),
+		Convidados:    convidadosDTO,
+	}
+
+	web.Respond(w, r, respDTO, http.StatusOK)
+}
+
+func (h *GuestHandler) HandleRemoverGrupo(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente ou inválido no token.", http.StatusUnauthorized)
+		return
+	}
+
+	groupIDStr := chi.URLParam(r, "idGrupo")
+	groupID, err := uuid.Parse(groupIDStr)
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do grupo é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	err = h.service.RemoverGrupo(r.Context(), userID, groupID)
+	if err != nil {
+		if errors.Is(err, domain.ErrGrupoNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Grupo não encontrado.", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrNaoPodeRemoverGrupoComRSVP) {
+			web.RespondError(w, r, "DADOS_INVALIDOS", err.Error(), http.StatusBadRequest)
+			return
+		}
+		log.Printf("ERRO: %v\n", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao processar sua requisição.", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *GuestHandler) HandleObterEstatisticasRSVP(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente ou inválido no token.", http.StatusUnauthorized)
+		return
+	}
+
+	eventIDStr := chi.URLParam(r, "idEvento")
+	eventID, err := uuid.Parse(eventIDStr)
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do evento é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	stats, err := h.service.ObterEstatisticasRSVP(r.Context(), userID, eventID)
+	if err != nil {
+		log.Printf("ERRO: %v\n", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao processar sua requisição.", http.StatusInternalServerError)
+		return
+	}
+
+	respDTO := EstatisticasRSVPDTO{
+		TotalGrupos:           stats.TotalGrupos,
+		TotalConvidados:       stats.TotalConvidados,
+		ConvidadosConfirmados: stats.ConvidadosConfirmados,
+		ConvidadosRecusados:   stats.ConvidadosRecusados,
+		ConvidadosPendentes:   stats.ConvidadosPendentes,
+		PercentualConfirmado:  stats.PercentualConfirmado,
+		PercentualRecusado:    stats.PercentualRecusado,
+		PercentualPendente:    stats.PercentualPendente,
+	}
+
+	web.Respond(w, r, respDTO, http.StatusOK)
 }

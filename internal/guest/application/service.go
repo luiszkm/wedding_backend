@@ -81,3 +81,51 @@ func (s *GuestService) RevisarGrupo(ctx context.Context, userID, groupID uuid.UU
 	}
 	return nil
 }
+
+// ListarGruposPorEvento retorna todos os grupos de um evento
+func (s *GuestService) ListarGruposPorEvento(ctx context.Context, userID, eventID uuid.UUID, statusFilter string) ([]*domain.GrupoDeConvidados, error) {
+	grupos, err := s.repo.FindAllByEventID(ctx, userID, eventID, statusFilter)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao listar grupos por evento: %w", err)
+	}
+	return grupos, nil
+}
+
+// ObterGrupoPorID retorna um grupo específico (admin)
+func (s *GuestService) ObterGrupoPorID(ctx context.Context, userID, groupID uuid.UUID) (*domain.GrupoDeConvidados, error) {
+	grupo, err := s.repo.FindByID(ctx, userID, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao obter grupo por ID: %w", err)
+	}
+	return grupo, nil
+}
+
+// RemoverGrupo remove um grupo completamente
+func (s *GuestService) RemoverGrupo(ctx context.Context, userID, groupID uuid.UUID) error {
+	// 1. Carregar o grupo para validação
+	grupo, err := s.repo.FindByID(ctx, userID, groupID)
+	if err != nil {
+		return fmt.Errorf("falha ao buscar grupo para remoção: %w", err)
+	}
+
+	// 2. Validar se pode ser removido (regra de negócio)
+	if err := grupo.PodeSerRemovido(); err != nil {
+		return err
+	}
+
+	// 3. Remover o grupo
+	if err := s.repo.Delete(ctx, userID, groupID); err != nil {
+		return fmt.Errorf("falha ao remover grupo: %w", err)
+	}
+
+	return nil
+}
+
+// ObterEstatisticasRSVP retorna estatísticas de RSVP para um evento
+func (s *GuestService) ObterEstatisticasRSVP(ctx context.Context, userID, eventID uuid.UUID) (*domain.RSVPStats, error) {
+	stats, err := s.repo.GetRSVPStats(ctx, userID, eventID)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao obter estatísticas RSVP: %w", err)
+	}
+	return stats, nil
+}

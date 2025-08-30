@@ -28,7 +28,7 @@ func (r *PostgresGroupRepository) Save(ctx context.Context, group *domain.GrupoD
 	defer tx.Rollback(ctx)
 
 	sqlGrupo := `
-		INSERT INTO grupos_de_convidados (id, id_casamento, chave_de_acesso)
+		INSERT INTO convidados_grupos (id, id_evento, chave_de_acesso)
 		VALUES ($1, $2, $3);
 	`
 	_, err = tx.Exec(ctx, sqlGrupo, group.ID(), group.IDCasamento(), group.ChaveDeAcesso())
@@ -59,9 +59,9 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, accessKey
 	// Usamos LEFT JOIN para garantir que mesmo um grupo sem convidados (caso raro) seja retornado.
 	sql := `
 		SELECT 
-			g.id, g.id_casamento, g.chave_de_acesso,
+			g.id, g.id_evento, g.chave_de_acesso,
 			c.id, c.nome, c.status_rsvp
-		FROM grupos_de_convidados g
+		FROM convidados_grupos g
 		LEFT JOIN convidados c ON g.id = c.id_grupo
 		WHERE g.chave_de_acesso = $1;
 	`
@@ -227,6 +227,166 @@ func (r *PostgresGroupRepository) Update(ctx context.Context, userID uuid.UUID, 
 
 	// 4. Confirma a transação.
 	return tx.Commit(ctx)
+}
+
+func (r *PostgresGroupRepository) FindAllByEventID(ctx context.Context, userID, eventID uuid.UUID, statusFilter string) ([]*domain.GrupoDeConvidados, error) {
+	baseSQL := `
+		SELECT 
+			g.id, g.id_evento, g.chave_de_acesso,
+			c.id, c.nome, c.status_rsvp
+		FROM convidados_grupos g
+		JOIN eventos e ON g.id_evento = e.id
+		LEFT JOIN convidados c ON g.id = c.id_grupo
+		WHERE g.id_evento = $1 AND e.id_usuario = $2`
+
+	args := []interface{}{eventID, userID}
+
+	if statusFilter != "" {
+		baseSQL += " AND c.status_rsvp = $3"
+		args = append(args, statusFilter)
+	}
+
+	baseSQL += " ORDER BY g.created_at DESC"
+
+	rows, err := r.db.Query(ctx, baseSQL, args...)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao consultar grupos por evento: %w", err)
+	}
+	defer rows.Close()
+
+	gruposMap := make(map[uuid.UUID]*domain.GrupoDeConvidados)
+	var gruposOrdenados []*domain.GrupoDeConvidados
+
+	for rows.Next() {
+		var grupoID, idEvento, convidadoID uuid.UUID
+		var chaveDeAcesso, nomeConvidado, statusRSVP string
+		var pConvidadoID *uuid.UUID
+		var pNomeConvidado, pStatusRSVP *string
+
+		if err := rows.Scan(
+			&grupoID, &idEvento, &chaveDeAcesso,
+			&pConvidadoID, &pNomeConvidado, &pStatusRSVP,
+		); err != nil {
+			return nil, fmt.Errorf("falha ao escanear linha da consulta por evento: %w", err)
+		}
+
+		grupo, existe := gruposMap[grupoID]
+		if !existe {
+			grupo = domain.HydrateGroup(grupoID, idEvento, chaveDeAcesso, nil)
+			gruposMap[grupoID] = grupo
+			gruposOrdenados = append(gruposOrdenados, grupo)
+		}
+
+		if pConvidadoID != nil {
+			convidadoID = *pConvidadoID
+			nomeConvidado = *pNomeConvidado
+			statusRSVP = *pStatusRSVP
+			convidado := domain.HydrateConvidado(convidadoID, nomeConvidado, statusRSVP)
+
+			// Precisa recriar o grupo com os convidados atualizados
+			convidadosAtuais := grupo.Convidados()
+			convidadosAtualizados := append(convidadosAtuais, convidado)
+			grupoAtualizado := domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidadosAtualizados)
+			gruposMap[grupoID] = grupoAtualizado
+
+			// Atualizar na lista ordenada também
+			for i, g := range gruposOrdenados {
+				if g.ID() == grupoID {
+					gruposOrdenados[i] = grupoAtualizado
+					break
+				}
+			}
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("erro durante iteração das linhas: %w", err)
+	}
+
+	return gruposOrdenados, nil
+}
+
+func (r *PostgresGroupRepository) Delete(ctx context.Context, userID, groupID uuid.UUID) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("falha ao iniciar transação para delete: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Primeiro, verificar se o grupo pertence ao usuário
+	var exists bool
+	checkSQL := `
+		SELECT EXISTS(
+			SELECT 1 FROM convidados_grupos g
+			JOIN eventos e ON g.id_evento = e.id
+			WHERE g.id = $1 AND e.id_usuario = $2
+		)
+	`
+	if err := tx.QueryRow(ctx, checkSQL, groupID, userID).Scan(&exists); err != nil {
+		return fmt.Errorf("falha ao verificar propriedade do grupo: %w", err)
+	}
+
+	if !exists {
+		return domain.ErrGrupoNaoEncontrado
+	}
+
+	// Deletar convidados primeiro (FK constraint)
+	if _, err := tx.Exec(ctx, "DELETE FROM convidados WHERE id_grupo = $1", groupID); err != nil {
+		return fmt.Errorf("falha ao deletar convidados: %w", err)
+	}
+
+	// Deletar o grupo
+	cmdTag, err := tx.Exec(ctx, "DELETE FROM convidados_grupos WHERE id = $1", groupID)
+	if err != nil {
+		return fmt.Errorf("falha ao deletar grupo: %w", err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return domain.ErrGrupoNaoEncontrado
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (r *PostgresGroupRepository) GetRSVPStats(ctx context.Context, userID, eventID uuid.UUID) (*domain.RSVPStats, error) {
+	sql := `
+		SELECT 
+			COUNT(DISTINCT g.id) as total_grupos,
+			COUNT(c.id) as total_convidados,
+			COUNT(CASE WHEN c.status_rsvp = 'CONFIRMADO' THEN 1 END) as confirmados,
+			COUNT(CASE WHEN c.status_rsvp = 'RECUSADO' THEN 1 END) as recusados,
+			COUNT(CASE WHEN c.status_rsvp = 'PENDENTE' THEN 1 END) as pendentes
+		FROM convidados_grupos g
+		JOIN eventos e ON g.id_evento = e.id
+		LEFT JOIN convidados c ON g.id = c.id_grupo
+		WHERE g.id_evento = $1 AND e.id_usuario = $2
+	`
+
+	var totalGrupos, totalConvidados, confirmados, recusados, pendentes int
+
+	err := r.db.QueryRow(ctx, sql, eventID, userID).Scan(
+		&totalGrupos, &totalConvidados, &confirmados, &recusados, &pendentes,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao obter estatísticas RSVP: %w", err)
+	}
+
+	stats := &domain.RSVPStats{
+		TotalGrupos:           totalGrupos,
+		TotalConvidados:       totalConvidados,
+		ConvidadosConfirmados: confirmados,
+		ConvidadosRecusados:   recusados,
+		ConvidadosPendentes:   pendentes,
+	}
+
+	// Calcular percentuais
+	if totalConvidados > 0 {
+		stats.PercentualConfirmado = float64(confirmados) / float64(totalConvidados) * 100
+		stats.PercentualRecusado = float64(recusados) / float64(totalConvidados) * 100
+		stats.PercentualPendente = float64(pendentes) / float64(totalConvidados) * 100
+	}
+
+	return stats, nil
 }
 
 func (r *PostgresGroupRepository) UpdateRSVP(ctx context.Context, group *domain.GrupoDeConvidados) error {

@@ -9,7 +9,9 @@
       "Bash(mv:*)",
       "Bash(curl:*)",
       "Bash(rm:*)",
-      "Bash(go run:*)"
+      "Bash(go run:*)",
+      "Bash(go get:*)",
+      "Bash(go fmt:*)"
     ],
     "deny": []
   }

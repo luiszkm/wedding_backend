@@ -186,8 +186,12 @@ func main() {
 			r.Use(authMiddleware)
 
 			r.Post("/eventos/{idCasamento}/grupos-de-convidados", guestHandler.HandleCriarGrupoDeConvidados)
-			r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
+			r.Get("/eventos/{idEvento}/grupos-de-convidados", guestHandler.HandleListarGruposPorEvento)
+			r.Get("/grupos-de-convidados/{idGrupo}", guestHandler.HandleObterGrupoPorID)
 			r.Put("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRevisarGrupo)
+			r.Delete("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRemoverGrupo)
+			r.Get("/eventos/{idEvento}/rsvp-stats", guestHandler.HandleObterEstatisticasRSVP)
+			r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
 			// rota de presentes
 			r.Post("/eventos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
 			r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)

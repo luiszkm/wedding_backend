@@ -14,6 +14,7 @@ var (
 	ErrGrupoNaoEncontrado            = errors.New("grupo de convidados não encontrado")
 	ErrConvidadoNaoEncontradoNoGrupo = errors.New("um ou mais convidados não pertencem a este grupo")
 	ErrStatusRSVPInvalido            = errors.New("status de rsvp inválido")
+	ErrNaoPodeRemoverGrupoComRSVP    = errors.New("não é possível remover grupo com confirmações de presença")
 )
 
 // GrupoDeConvidados é o agregado raiz para o contexto de RSVP.
@@ -113,8 +114,9 @@ func NewGrupoDeConvidados(idCasamento uuid.UUID, chaveDeAcesso string, nomesDosC
 	convidados := make([]*Convidado, len(nomesDosConvidados))
 	for i, nome := range nomesDosConvidados {
 		convidados[i] = &Convidado{
-			id:   uuid.New(),
-			nome: nome,
+			id:         uuid.New(),
+			nome:       nome,
+			statusRSVP: StatusRSVPPendente,
 		}
 	}
 
@@ -169,6 +171,16 @@ func (g *GrupoDeConvidados) ConfirmarPresenca(respostas []RespostaRSVP) error {
 	}
 
 	g.updatedAt = time.Now()
+	return nil
+}
+
+// PodeSerRemovido verifica se o grupo pode ser removido com segurança
+func (g *GrupoDeConvidados) PodeSerRemovido() error {
+	for _, convidado := range g.convidados {
+		if convidado.statusRSVP != StatusRSVPPendente {
+			return ErrNaoPodeRemoverGrupoComRSVP
+		}
+	}
 	return nil
 }
 

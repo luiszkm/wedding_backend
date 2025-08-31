@@ -3,8 +3,8 @@
 
 ### Variáveis
 @baseUrl = http://localhost:8080/v1
-@authToken = {{authToken}}
-@eventoId = {{eventoId}}
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTcxNzk3NjgsImlhdCI6MTc1NjU3NDk2OCwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.g4O2kqMwlYEFJP-zQiWaINIIFR7t_wXwgXMxZNtF1gc
+@eventoId = 70131545-f884-49ba-860f-438b22edc1d2
 
 ###
 

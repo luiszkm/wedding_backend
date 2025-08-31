@@ -1,13 +1,37 @@
 # Testes de Convidados - Wedding API
 
 ### Variáveis
-@baseUrl = http://localhost:3000/v1
-@authToken = {{authToken}}
-@eventoId = {{eventoId}}
+@baseUrl = http://localhost:8080/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTcxNzk3NjgsImlhdCI6MTc1NjU3NDk2OCwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.g4O2kqMwlYEFJP-zQiWaINIIFR7t_wXwgXMxZNtF1gc
+
+@eventoId = 70131545-f884-49ba-860f-438b22edc1d2
 
 ###
 
-# Criar grupo de convidados
+# 0. Verificar se o servidor está funcionando
+GET {{baseUrl}}/health
+
+###
+
+# 1. Criar evento para os testes
+POST {{baseUrl}}/eventos
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "nome": "Teste Convidados - João & Maria",
+  "data": "2025-06-15T15:00:00Z",
+  "tipo": "CASAMENTO",
+  "urlSlug": "teste-convidados-2025"
+}
+
+> {%
+  client.global.set("eventoId", response.body.idEvento);
+%}
+
+###
+
+# 2. Criar grupo de convidados
 POST {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
@@ -27,7 +51,7 @@ Authorization: Bearer {{authToken}}
 
 ###
 
-# Criar outro grupo de convidados
+# 3. Criar outro grupo de convidados
 POST {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
@@ -47,13 +71,17 @@ Authorization: Bearer {{authToken}}
 
 ###
 
-# Obter grupo por chave de acesso
+# 4. Obter grupo por chave de acesso (público)
 GET {{baseUrl}}/acesso-convidado?chave={{chaveAcesso}}
-Authorization: Bearer {{authToken}}
+
+> {%
+  client.global.set("convidado1Id", response.body.convidados[0].id);
+  client.global.set("convidado2Id", response.body.convidados[1].id);
+%}
 
 ###
 
-# Confirmar presença (RSVP)
+# 5. Confirmar presença (RSVP)
 POST {{baseUrl}}/rsvps
 Content-Type: application/json
 
@@ -73,7 +101,7 @@ Content-Type: application/json
 
 ###
 
-# Revisar grupo de convidados
+# 6. Revisar grupo de convidados
 PUT {{baseUrl}}/grupos-de-convidados/{{grupoId}}
 Content-Type: application/json
 Authorization: Bearer {{authToken}}
@@ -93,30 +121,54 @@ Authorization: Bearer {{authToken}}
 
 ###
 
-# Listar grupos de um evento
+# 7. Listar grupos de um evento
 GET {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
 Authorization: Bearer {{authToken}}
 
 ###
 
-# Listar grupos com filtro por status
+# 8. Listar grupos com filtro por status
 GET {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados?status=CONFIRMADO
 Authorization: Bearer {{authToken}}
 
 ###
 
-# Obter grupo específico por ID (admin)
+# 9. Obter grupo específico por ID (admin)
 GET {{baseUrl}}/grupos-de-convidados/{{grupoId}}
 Authorization: Bearer {{authToken}}
 
 ###
 
-# Obter estatísticas de RSVP do evento
+# 10. Obter estatísticas de RSVP do evento
 GET {{baseUrl}}/eventos/{{eventoId}}/rsvp-stats
 Authorization: Bearer {{authToken}}
 
 ###
 
-# Remover grupo (somente se todos os convidados estão pendentes)
+# 11. Criar grupo para teste de remoção
+POST {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "chaveDeAcesso": "teste-remocao",
+  "nomesDosConvidados": [
+    "Teste Convidado"
+  ]
+}
+
+> {%
+  client.global.set("grupoParaRemover", response.body.idGrupo);
+%}
+
+###
+
+# 12. Remover grupo (deve funcionar - todos pendentes)
+DELETE {{baseUrl}}/grupos-de-convidados/{{grupoParaRemover}}
+Authorization: Bearer {{authToken}}
+
+###
+
+# 13. Tentar remover grupo com confirmações (deve falhar)
 DELETE {{baseUrl}}/grupos-de-convidados/{{grupoId}}
 Authorization: Bearer {{authToken}}

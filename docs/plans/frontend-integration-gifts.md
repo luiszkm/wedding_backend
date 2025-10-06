@@ -9,51 +9,57 @@ O módulo de Lista de Presentes permite criar e gerenciar uma lista de presentes
 ### Base URL
 
 ```
-http://localhost:3000/v1
+http://localhost:8080/v1
 ```
 
 ### 1. 📋 **Listar Presentes Públicos**
 
-**Endpoint:** `GET /casamentos/{idCasamento}/presentes-publico`
+**Endpoint:** `GET /eventos/{idEvento}/presentes-publico`
 
 **Descrição:** Retorna lista pública de presentes disponíveis para seleção. Endpoint público - não requer autenticação.
 
 **Parâmetros:**
 
-- `idCasamento` (path): UUID do casamento
+- `idEvento` (path): UUID do evento
 
 **Resposta de Sucesso (200):**
 
 ```json
-{
-  "presentes": [
-    {
-      "id": "123e4567-e89b-12d3-a456-426614174000",
-      "nome": "Jogo de Panelas Premium",
-      "descricao": "Conjunto completo de panelas antiaderentes",
-      "preco": 299.99,
-      "imagem_url": "https://storage.example.com/gifts/panelas.jpg",
-      "selecionado": false,
-      "tipo": "COMPLETO",
-      "cotas_disponiveis": null,
-      "cotas_selecionadas": null,
-      "valor_por_cota": null,
-      
+[
+  {
+    "id": "6b6b9034-50a9-4dbf-a736-0b4f5d6e8f61",
+    "nome": "Cafeteira Elétrica",
+    "descricao": "Cafeteira elétrica 12 xícaras",
+    "fotoUrl": "",
+    "ehFavorito": false,
+    "categoria": "COZINHA",
+    "detalhes": {
+      "tipo": "PRODUTO_EXTERNO",
+      "linkDaLoja": "https://exemplo.com/cafeteira"
     },
-    {
-      "id": "456e7890-e89b-12d3-a456-426614174001",
-      "nome": "Lua de Mel - Passagens",
-      "descricao": "Contribuição para passagens da lua de mel",
-      "preco": 2000.0,
-      "imagem_url": "https://storage.example.com/gifts/viagem.jpg",
-      "selecionado": false,
-      "tipo": "FRACIONADO",
-      "cotas_disponiveis": 10,
-      "cotas_selecionadas": 3,
-      "valor_por_cota": 200.0
-    }
-  ]
-}
+    "tipo": "INTEGRAL",
+    "status": "DISPONIVEL"
+  },
+  {
+    "id": "27c71b89-7c0e-4d16-8d50-c76e8bdb1261",
+    "nome": "Geladeira Frost Free",
+    "descricao": "Geladeira 2 portas 400L",
+    "fotoUrl": "",
+    "ehFavorito": true,
+    "categoria": "COZINHA",
+    "detalhes": {
+      "tipo": "PRODUTO_EXTERNO",
+      "linkDaLoja": "https://exemplo.com/geladeira"
+    },
+    "tipo": "FRACIONADO",
+    "status": "DISPONIVEL",
+    "valorTotal": 2500,
+    "valorCota": 250,
+    "cotasTotais": 10,
+    "cotasDisponiveis": 10,
+    "cotasSelecionadas": 0
+  }
+]
 ```
 
 ### 2. 🛒 **Selecionar Presente**
@@ -100,60 +106,80 @@ Content-Type: application/json
 
 ### 3. ➕ **Criar Presente (Autenticado)**
 
-**Endpoint:** `POST /casamentos/{idCasamento}/presentes`
+**Endpoint:** `POST /eventos/{idEvento}/presentes`
 
 **Descrição:** Cria um novo presente na lista. Requer autenticação JWT.
 
 **Headers:**
 
 ```
-Content-Type: application/json
+Content-Type: multipart/form-data
 Authorization: Bearer {jwt_token}
 ```
 
 **Parâmetros:**
 
-- `idCasamento` (path): UUID do casamento
+- `idEvento` (path): UUID do evento
 
-**Body da Requisição:**
+**Body da Requisição (Multipart Form):**
 
+*Presente Integral:*
 ```json
 {
-  "nome": "Jogo de Panelas Premium",
-  "descricao": "Conjunto completo de panelas antiaderentes com revestimento cerâmico",
-  "preco": 299.99,
-  "imagem": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",
-  "tipo": "COMPLETO",
-  "numero_cotas": null,
-  "valor_por_cota": null
+  "nome": "Cafeteira Elétrica",
+  "descricao": "Cafeteira elétrica 12 xícaras",
+  "ehFavorito": false,
+  "categoria": "COZINHA",
+  "tipo": "INTEGRAL",
+  "detalhes": {
+    "tipo": "PRODUTO_EXTERNO",
+    "linkDaLoja": "https://exemplo.com/cafeteira"
+  }
 }
 ```
 
-**Campos para Presente Fracionado:**
-
+*Presente Fracionado:*
 ```json
 {
-  "nome": "Lua de Mel - Hotel",
-  "descricao": "Contribuição para hospedagem da lua de mel",
-  "preco": 1500.0,
-  "imagem": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",
+  "nome": "Geladeira Frost Free",
+  "descricao": "Geladeira 2 portas 400L",
+  "ehFavorito": true,
+  "categoria": "COZINHA",
   "tipo": "FRACIONADO",
-  "numero_cotas": 10,
-  "valor_por_cota": 150.0
+  "valorTotal": 2500.00,
+  "numeroCotas": 10,
+  "detalhes": {
+    "tipo": "PRODUTO_EXTERNO",
+    "linkDaLoja": "https://exemplo.com/geladeira"
+  }
 }
 ```
+
+**Categorias Disponíveis:**
+`MAIN`, `CASAMENTO`, `LUADEMEL`, `HISTORIA`, `FAMILIA`, `OUTROS`, `COZINHA`, `SALA`, `QUARTO`, `BANHEIRO`, `JARDIM`, `DECORACAO`, `ELETRONICOS`, `UTENSILIOS`
 
 **Resposta de Sucesso (201):**
 
 ```json
 {
-  "id": "123e4567-e89b-12d3-a456-426614174000"
+  "idPresente": "123e4567-e89b-12d3-a456-426614174000"
 }
 ```
 
+## ⚠️ **Notas de Schema e Migração**
+
+**Hotfixes Aplicados:**
+- **Migration 08**: Corrigida coluna `status` removida inadvertidamente pela migration de presentes fracionados
+- **Migration 09**: Adicionadas categorias de presente faltantes (`COZINHA`, `SALA`, `QUARTO`, etc.)
+- **Migration 10**: Criada tabela `cotas_de_presentes` que estava faltando para suporte a presentes fracionados
+
+**Categorias Completas:**
+Após as correções, as seguintes categorias estão disponíveis:
+`MAIN`, `CASAMENTO`, `LUADEMEL`, `HISTORIA`, `FAMILIA`, `OUTROS`, `COZINHA`, `SALA`, `QUARTO`, `BANHEIRO`, `JARDIM`, `DECORACAO`, `ELETRONICOS`, `UTENSILIOS`
+
 ### 4. 📊 **Listar Presentes Administrativo (Autenticado)**
 
-**Endpoint:** `GET /casamentos/{idCasamento}/presentes`
+**Endpoint:** `GET /eventos/{idEvento}/presentes`
 
 **Descrição:** Lista todos os presentes com informações administrativas incluindo seleções. Requer autenticação JWT.
 

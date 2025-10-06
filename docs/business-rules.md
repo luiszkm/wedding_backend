@@ -45,12 +45,17 @@ if len(nomes) == 0 {
 
 ### Lista de Presentes
 
-**Regras de Disponibilidade:**
-- Cada presente tem status: `DISPONIVEL` ou `SELECIONADO`
-- Apenas presentes `DISPONIVEL` podem ser selecionados
-- Uma vez selecionado, o presente fica indisponível para outros
-
 **Tipos de Presente:**
+1. **INTEGRAL**: Presente completo selecionado por um único convidado
+   - Status: `DISPONIVEL` ou `SELECIONADO`
+   - Uma vez selecionado, fica indisponível para outros
+   
+2. **FRACIONADO**: Presente dividido em cotas que podem ser selecionadas por múltiplos convidados
+   - Status: `DISPONIVEL`, `PARCIALMENTE_SELECIONADO`, ou `SELECIONADO`
+   - Valor total dividido em número específico de cotas
+   - Cada cota tem valor individual e status próprio
+
+**Modalidades de Detalhes:**
 1. **PRODUTO_EXTERNO**: Link para loja externa
    - Campo `detalhes_link_loja` é obrigatório
    - Campo `detalhes_chave_pix` deve ser nulo
@@ -60,15 +65,30 @@ if len(nomes) == 0 {
    - Campo `detalhes_link_loja` deve ser nulo
 
 **Regras de Seleção:**
-- Convidados podem selecionar presentes usando grupo de convidados
+
+*Para Presentes Integrais:*
+- Convidados selecionam o presente completo usando grupo de convidados
+- Presente passa de `DISPONIVEL` para `SELECIONADO`
 - Uma seleção é registrada com data/hora
-- O presente é marcado como `SELECIONADO`
-- A seleção é vinculada ao grupo que selecionou
+
+*Para Presentes Fracionados:*
+- Convidados podem selecionar uma ou múltiplas cotas
+- Cada cota selecionada é vinculada ao grupo que selecionou
+- Status do presente atualiza automaticamente:
+  - `DISPONIVEL`: Todas as cotas disponíveis
+  - `PARCIALMENTE_SELECIONADO`: Algumas cotas selecionadas
+  - `SELECIONADO`: Todas as cotas selecionadas
 
 **Categorização:**
 - Presentes podem ter categoria (rótulo)
-- Categorias disponíveis: `MAIN`, `CASAMENTO`, `LUADEMEL`, `HISTORIA`, `FAMILIA`, `OUTROS`
+- Categorias disponíveis: `MAIN`, `CASAMENTO`, `LUADEMEL`, `HISTORIA`, `FAMILIA`, `OUTROS`, `COZINHA`, `SALA`, `QUARTO`, `BANHEIRO`, `JARDIM`, `DECORACAO`, `ELETRONICOS`, `UTENSILIOS`
 - Casais podem marcar presentes como favoritos
+
+**Sistema de Cotas:**
+- Cada cota tem valor individual calculado automaticamente (valor_total ÷ numero_cotas)
+- Cotas são numeradas sequencialmente (1, 2, 3...)
+- Não é possível selecionar cotas parciais (ex: 0.5 cota)
+- Sistema garante integridade através de constraints de banco
 
 **Validações:**
 ```sql

@@ -129,7 +129,7 @@ Registra as seleções de presentes pelos convidados.
 | data_da_selecao | TIMESTAMP | Data da seleção |
 
 ### presentes
-Lista de presentes do evento.
+Lista de presentes do evento, suportando presentes integrais e fracionados.
 
 | Campo | Tipo | Descrição |
 |-------|------|-----------|
@@ -139,16 +139,39 @@ Lista de presentes do evento.
 | descricao | TEXT | Descrição detalhada |
 | foto_url | TEXT | URL da foto do presente |
 | eh_favorito | BOOLEAN | Se é favorito do casal |
-| status | status_presente | Status atual |
+| status | status_presente | Status atual (DISPONIVEL, PARCIALMENTE_SELECIONADO, SELECIONADO) |
 | categoria | nome_rotulo_enum | Categoria do presente |
 | detalhes_tipo | tipo_detalhe_presente | Tipo de detalhe |
 | detalhes_link_loja | TEXT | Link para loja externa |
 | detalhes_chave_pix | VARCHAR(255) | Chave PIX para doação |
 | id_selecao | UUID | FK para presentes_selecoes |
+| tipo | tipo_presente | Tipo do presente (INTEGRAL, FRACIONADO) |
+| valor_total_presente | NUMERIC(10,2) | Valor total (para presentes fracionados) |
 
 **Business Rules:**
 - Se `detalhes_tipo = 'PRODUTO_EXTERNO'`, então `detalhes_link_loja` deve estar preenchido
 - Se `detalhes_tipo = 'PIX'`, então `detalhes_chave_pix` deve estar preenchida
+- Se `tipo = 'FRACIONADO'`, então `valor_total_presente` deve estar preenchido
+- Presentes fracionados têm cotas associadas na tabela `cotas_de_presentes`
+
+### cotas_de_presentes
+Sistema de cotas para presentes fracionados.
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | UUID | Chave primária |
+| id_presente | UUID | FK para presentes |
+| numero_cota | INTEGER | Número sequencial da cota (1, 2, 3...) |
+| valor_cota | NUMERIC(10,2) | Valor individual da cota |
+| status | status_presente | Status da cota (DISPONIVEL, SELECIONADO) |
+| id_selecao | UUID | FK para presentes_selecoes (quando selecionada) |
+
+**Business Rules:**
+- `numero_cota` deve ser positivo e único por presente
+- `valor_cota` deve ser positivo
+- Para um presente fracionado: valor_total = SUM(valor_cota) de todas as cotas
+- Cotas só podem ser selecionadas individualmente
+- Constraint única: `(id_presente, numero_cota)`
 
 ### recados
 Mural de recados dos convidados.

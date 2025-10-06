@@ -14,14 +14,12 @@ require (
 require github.com/golang-jwt/jwt/v5 v5.2.2
 
 require (
+	github.com/go-chi/cors v1.2.2
 	github.com/stripe/stripe-go/v79 v79.12.0
 	github.com/stripe/stripe-go/v82 v82.2.1
 )
 
-require (
-	github.com/go-chi/cors v1.2.2 // indirect
-	github.com/stretchr/objx v0.5.2 // indirect
-)
+require github.com/stretchr/objx v0.5.2 // indirect
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.36.3

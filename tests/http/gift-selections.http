@@ -2,7 +2,7 @@
 # Inclui testes para o novo formato com cotas (ADR-004)
 
 ### Variáveis
-@baseUrl = http://localhost:3000/v1
+@baseUrl = http://localhost:8080/v1
 @chaveAcesso = {{chaveAcesso}}
 @chaveAcesso2 = {{chaveAcesso2}}
 @presenteIntegralId = {{presenteIntegralId}}

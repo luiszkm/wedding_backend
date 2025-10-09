@@ -170,7 +170,7 @@ func main() {
 		r.Get("/planos", billingHandler.HandleListarPlanos)                       // Nova rota pública
 		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook)            // <-- Rota do Webhook
 		r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso) // acesso convidado
-
+		r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)
 		// ... outras rotas públicas
 		// --- Rotas Protegidas ---
 		// Todas as rotas dentro deste grupo exigirão um token JWT válido.
@@ -185,7 +185,7 @@ func main() {
 			r.Get("/eventos/{idEvento}/rsvp-stats", guestHandler.HandleObterEstatisticasRSVP)
 			// rota de presentes
 			r.Post("/eventos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
-			r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)
+
 			//  rota de Recados
 			r.Post("/recados", recadoHandler.HandleDeixarRecado)
 			r.Get("/eventos/{idCasamento}/recados/admin", recadoHandler.HandleListarRecadosAdmin)

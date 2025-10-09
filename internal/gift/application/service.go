@@ -149,11 +149,8 @@ func (s *GiftService) FinalizarSelecaoDePresentes(ctx context.Context, chaveDeAc
 		return nil, &domain.ErrPresentesConflitantes{PresentesIDs: conflitantes}
 	}
 
-	// Finalizar seleção usando o método existente
-	idsParaSelecao := make([]uuid.UUID, len(presenteIDs))
-	copy(idsParaSelecao, presenteIDs)
-
-	selecao, err := s.selecaoRepo.SalvarSelecao(ctx, chaveDeAcesso, idsParaSelecao)
+	// Finalizar seleção passando o mapa de quantidades
+	selecao, err := s.selecaoRepo.SalvarSelecao(ctx, chaveDeAcesso, itensMap)
 	if err != nil {
 		return nil, fmt.Errorf("falha no serviço ao finalizar seleção: %w", err)
 	}

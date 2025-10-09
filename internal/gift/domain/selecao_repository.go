@@ -9,5 +9,6 @@ import (
 
 type SelecaoRepository interface {
 	// SalvarSelecao deve ser uma operação transacional.
-	SalvarSelecao(ctx context.Context, chaveDeAcesso string, idsDosPresentes []uuid.UUID) (*Selecao, error)
+	// O mapa quantidades mapeia ID do presente -> quantidade desejada
+	SalvarSelecao(ctx context.Context, chaveDeAcesso string, quantidades map[uuid.UUID]int) (*Selecao, error)
 }

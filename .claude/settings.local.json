@@ -17,7 +17,11 @@
       "Bash(docker-compose logs:*)",
       "Bash(docker-compose:*)",
       "Bash(netstat:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(timeout 5 docker-compose logs api --tail=100)",
+      "Bash(timeout:*)",
+      "Bash(docker exec:*)",
+      "Bash(findstr:*)"
     ],
     "deny": []
   }

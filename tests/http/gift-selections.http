@@ -3,10 +3,11 @@
 
 ### Variáveis
 @baseUrl = http://localhost:8080/v1
-@chaveAcesso = {{chaveAcesso}}
-@chaveAcesso2 = {{chaveAcesso2}}
-@presenteIntegralId = {{presenteIntegralId}}
+@chaveAcesso = festa
+@chaveAcesso2 = familia456
+@presenteIntegralId = a872a224-4a09-4abf-833a-29e1759b0cfa
 @presenteFracionadoId = {{presenteFracionadoId}}
+@eventoId = 4c98ca52-eab3-4057-bd34-e5904a12cd56
 @sofaId = {{sofaId}}
 
 ###
@@ -21,10 +22,6 @@ Content-Type: application/json
     {
       "idPresente": "{{presenteIntegralId}}",
       "quantidade": 1
-    },
-    {
-      "idPresente": "{{presenteFracionadoId}}",
-      "quantidade": 3
     }
   ]
 }

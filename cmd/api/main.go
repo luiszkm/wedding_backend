@@ -167,8 +167,9 @@ func main() {
 		r.Get("/eventos/{idEvento}/comunicados", communicationHandler.HandleListarComunicados)
 		r.Get("/eventos/{idEvento}/roteiro", itineraryHandler.HandleGetItinerary) // Rota pública do roteiro
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
-		r.Get("/planos", billingHandler.HandleListarPlanos)            // Nova rota pública
-		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook) // <-- Rota do Webhook
+		r.Get("/planos", billingHandler.HandleListarPlanos)                       // Nova rota pública
+		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook)            // <-- Rota do Webhook
+		r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso) // acesso convidado
 
 		// ... outras rotas públicas
 		// --- Rotas Protegidas ---
@@ -182,7 +183,6 @@ func main() {
 			r.Put("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRevisarGrupo)
 			r.Delete("/grupos-de-convidados/{idGrupo}", guestHandler.HandleRemoverGrupo)
 			r.Get("/eventos/{idEvento}/rsvp-stats", guestHandler.HandleObterEstatisticasRSVP)
-			r.Get("/acesso-convidado", guestHandler.HandleObterGrupoPorChaveDeAcesso)
 			// rota de presentes
 			r.Post("/eventos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
 			r.Post("/selecoes-de-presente", presenteHandler.HandleFinalizarSelecao)

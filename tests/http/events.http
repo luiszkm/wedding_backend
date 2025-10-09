@@ -2,7 +2,7 @@
 
 ### Variáveis
 @baseUrl = http://localhost:8080/v1
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTY0MTkzNTAsImlhdCI6MTc1NTgxNDU1MCwic3ViIjoiZTg5M2EyNjgtYTdjZi00MWZjLWE5Y2YtNWQwNDdlMWVjNjlhIn0.YHmwAX0NL-MtPqOFZuhjyuRSRN9_nNhwDCEMm0VE0qU
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjAxOTUyOTUsImlhdCI6MTc1OTU5MDQ5NSwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.vUne8wwaShORuW4cJFPrhmRZYUZCeh69xC562k7eJFA
 
 ###
 
@@ -25,7 +25,7 @@ Authorization: Bearer {{authToken}}
 ###
 
 # Buscar evento por slug (exemplo)
-GET {{baseUrl}}/eventos/joao-maria-2024
+GET {{baseUrl}}/eventos/luis-vivian
 
 ###
 

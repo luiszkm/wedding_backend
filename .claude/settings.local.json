@@ -13,7 +13,11 @@
       "Bash(go get:*)",
       "Bash(go fmt:*)",
       "Bash(docker-compose exec:*)",
-      "Bash(./server)"
+      "Bash(./server)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": []
   }

@@ -55,18 +55,19 @@ func (r *PostgresGroupRepository) Save(ctx context.Context, group *domain.GrupoD
 	return tx.Commit(ctx)
 }
 
-func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, accessKey string) (*domain.GrupoDeConvidados, error) {
+func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, eventID uuid.UUID, accessKey string) (*domain.GrupoDeConvidados, error) {
 	// Usamos LEFT JOIN para garantir que mesmo um grupo sem convidados (caso raro) seja retornado.
+	// Filtramos por id_evento E chave_de_acesso para evitar ambiguidade
 	sql := `
-		SELECT 
+		SELECT
 			g.id, g.id_evento, g.chave_de_acesso,
 			c.id, c.nome, c.status_rsvp
 		FROM convidados_grupos g
 		LEFT JOIN convidados c ON g.id = c.id_grupo
-		WHERE g.chave_de_acesso = $1;
+		WHERE g.id_evento = $1 AND g.chave_de_acesso = $2;
 	`
 
-	rows, err := r.db.Query(ctx, sql, accessKey)
+	rows, err := r.db.Query(ctx, sql, eventID, accessKey)
 	if err != nil {
 		return nil, fmt.Errorf("falha ao consultar grupo por chave de acesso: %w", err)
 	}
@@ -404,13 +405,24 @@ func (r *PostgresGroupRepository) UpdateRSVP(ctx context.Context, group *domain.
 	}
 
 	br := tx.SendBatch(ctx, batch)
-	defer br.Close()
 
 	// Verifica se todas as operações no lote foram bem-sucedidas.
 	for i := 0; i < len(group.Convidados()); i++ {
-		if _, err := br.Exec(); err != nil {
+		cmdTag, err := br.Exec()
+		if err != nil {
+			br.Close()
 			return fmt.Errorf("falha ao executar update de rsvp de convidado no lote: %w", err)
 		}
+		// Verifica se a linha foi realmente atualizada
+		if cmdTag.RowsAffected() == 0 {
+			br.Close()
+			return fmt.Errorf("convidado não foi atualizado: possivelmente não pertence ao grupo especificado")
+		}
+	}
+
+	// Fechar o batch reader ANTES de fazer commit
+	if err := br.Close(); err != nil {
+		return fmt.Errorf("falha ao fechar batch reader: %w", err)
 	}
 
 	return tx.Commit(ctx)

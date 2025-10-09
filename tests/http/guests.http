@@ -2,9 +2,15 @@
 
 ### Variáveis
 @baseUrl = http://localhost:8080/v1
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTcxNzk3NjgsImlhdCI6MTc1NjU3NDk2OCwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.g4O2kqMwlYEFJP-zQiWaINIIFR7t_wXwgXMxZNtF1gc
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjA0OTI3MjIsImlhdCI6MTc1OTg4NzkyMiwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.QoqFlM8omlM_IyWNg6fXtWHUm0EouZHowho2ziPYF0U
 
-@eventoId = 70131545-f884-49ba-860f-438b22edc1d2
+# Variáveis dinâmicas - serão preenchidas pelos testes
+@eventoId =4c98ca52-eab3-4057-bd34-e5904a12cd56
+@chaveAcesso =festa
+@convidado1Id = 99712939-bd8d-49f5-a901-3e94671ce1c1
+@convidado2Id = a002d656-810a-427e-b102-037622ceb36b
+@grupoId =
+@grupoParaRemover = 
 
 ###
 
@@ -37,7 +43,7 @@ Content-Type: application/json
 Authorization: Bearer {{authToken}}
 
 {
-  "chaveDeAcesso": "padrinhos123",
+  "chaveDeAcesso": "padrinhos",
   "nomesDosConvidados": [
     "Carlos Silva",
     "Ana Santos"
@@ -45,7 +51,7 @@ Authorization: Bearer {{authToken}}
 }
 
 > {%
-  client.global.set("chaveAcesso", "padrinhos123");
+  client.global.set("chaveAcesso", "padrinhos");
   client.global.set("grupoId", response.body.idGrupo);
 %}
 
@@ -72,7 +78,7 @@ Authorization: Bearer {{authToken}}
 ###
 
 # 4. Obter grupo por chave de acesso (público)
-GET {{baseUrl}}/acesso-convidado?chave={{chaveAcesso}}
+GET {{baseUrl}}/acesso-convidado?chave={{chaveAcesso}}&idEvento={{eventoId}}
 
 > {%
   client.global.set("convidado1Id", response.body.convidados[0].id);
@@ -86,15 +92,12 @@ POST {{baseUrl}}/rsvps
 Content-Type: application/json
 
 {
+  "idEvento": "{{eventoId}}",
   "chaveDeAcesso": "{{chaveAcesso}}",
   "respostas": [
     {
       "idConvidado": "{{convidado1Id}}",
-      "status": "CONFIRMADO"
-    },
-    {
-      "idConvidado": "{{convidado2Id}}", 
-      "status": "CONFIRMADO"
+      "status": "RECUSADO"
     }
   ]
 }

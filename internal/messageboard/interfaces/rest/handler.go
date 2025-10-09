@@ -31,7 +31,13 @@ func (h *MessageBoardHandler) HandleDeixarRecado(w http.ResponseWriter, r *http.
 		return
 	}
 
-	err := h.service.DeixarNovoRecado(r.Context(), reqDTO.ChaveDeAcesso, reqDTO.NomeDoAutor, reqDTO.Texto)
+	eventID, err := uuid.Parse(reqDTO.IDEvento)
+	if err != nil {
+		web.RespondError(w, r, "DADOS_INVALIDOS", "ID do evento inválido: "+reqDTO.IDEvento, http.StatusBadRequest)
+		return
+	}
+
+	err = h.service.DeixarNovoRecado(r.Context(), eventID, reqDTO.ChaveDeAcesso, reqDTO.NomeDoAutor, reqDTO.Texto)
 	if err != nil {
 		// Verifica se o erro foi porque a chave de acesso não foi encontrada.
 		if errors.Is(err, guestDomain.ErrGrupoNaoEncontrado) {

@@ -35,8 +35,8 @@ func (s *GuestService) CriarNovoGrupo(ctx context.Context, idCasamento uuid.UUID
 }
 
 // ObterGrupoPorChaveDeAcesso é o caso de uso para a busca.
-func (s *GuestService) ObterGrupoPorChaveDeAcesso(ctx context.Context, accessKey string) (*domain.GrupoDeConvidados, error) {
-	grupo, err := s.repo.FindByAccessKey(ctx, accessKey)
+func (s *GuestService) ObterGrupoPorChaveDeAcesso(ctx context.Context, eventID uuid.UUID, accessKey string) (*domain.GrupoDeConvidados, error) {
+	grupo, err := s.repo.FindByAccessKey(ctx, eventID, accessKey)
 	if err != nil {
 		// Apenas repassa o erro (seja ele "não encontrado" ou um erro técnico).
 		return nil, fmt.Errorf("falha ao obter grupo: %w", err)
@@ -44,9 +44,9 @@ func (s *GuestService) ObterGrupoPorChaveDeAcesso(ctx context.Context, accessKey
 	return grupo, nil
 }
 
-func (s *GuestService) ConfirmarPresencaGrupo(ctx context.Context, chaveDeAcesso string, respostas []domain.RespostaRSVP) error {
+func (s *GuestService) ConfirmarPresencaGrupo(ctx context.Context, eventID uuid.UUID, chaveDeAcesso string, respostas []domain.RespostaRSVP) error {
 	// 1. Carregar o agregado pela chave de acesso.
-	grupo, err := s.repo.FindByAccessKey(ctx, chaveDeAcesso)
+	grupo, err := s.repo.FindByAccessKey(ctx, eventID, chaveDeAcesso)
 	if err != nil {
 		return fmt.Errorf("falha ao buscar grupo por chave: %w", err)
 	}

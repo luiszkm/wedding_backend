@@ -65,15 +65,27 @@ func (h *GuestHandler) HandleCriarGrupoDeConvidados(w http.ResponseWriter, r *ht
 }
 
 func (h *GuestHandler) HandleObterGrupoPorChaveDeAcesso(w http.ResponseWriter, r *http.Request) {
-	// 1. Extrair o query parameter da URL.
+	// 1. Extrair os query parameters da URL.
 	chaveDeAcesso := r.URL.Query().Get("chave")
 	if chaveDeAcesso == "" {
 		web.RespondError(w, r, "PARAMETRO_AUSENTE", "O parâmetro 'chave' é obrigatório.", http.StatusBadRequest)
 		return
 	}
 
+	eventoIDStr := r.URL.Query().Get("idEvento")
+	if eventoIDStr == "" {
+		web.RespondError(w, r, "PARAMETRO_AUSENTE", "O parâmetro 'idEvento' é obrigatório.", http.StatusBadRequest)
+		return
+	}
+
+	eventoID, err := uuid.Parse(eventoIDStr)
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do evento é inválido.", http.StatusBadRequest)
+		return
+	}
+
 	// 2. Chamar a camada de aplicação.
-	grupo, err := h.service.ObterGrupoPorChaveDeAcesso(r.Context(), chaveDeAcesso)
+	grupo, err := h.service.ObterGrupoPorChaveDeAcesso(r.Context(), eventoID, chaveDeAcesso)
 	if err != nil {
 		// Se o erro for "não encontrado", retornamos 404.
 		if errors.Is(err, domain.ErrGrupoNaoEncontrado) {
@@ -112,7 +124,14 @@ func (h *GuestHandler) HandleConfirmarPresenca(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 2. Converter o DTO da camada de interface para o tipo do domínio.
+	// 2. Validar e parsear o ID do evento.
+	eventoID, err := uuid.Parse(reqDTO.IDEvento)
+	if err != nil {
+		web.RespondError(w, r, "DADOS_INVALIDOS", "ID do evento inválido: "+reqDTO.IDEvento, http.StatusBadRequest)
+		return
+	}
+
+	// 3. Converter o DTO da camada de interface para o tipo do domínio.
 	respostasDominio := make([]domain.RespostaRSVP, len(reqDTO.Respostas))
 	for i, rsvpDTO := range reqDTO.Respostas {
 		convidadoID, err := uuid.Parse(rsvpDTO.IDConvidado)
@@ -126,8 +145,8 @@ func (h *GuestHandler) HandleConfirmarPresenca(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	// 3. Chamar o serviço de aplicação.
-	err := h.service.ConfirmarPresencaGrupo(r.Context(), reqDTO.ChaveDeAcesso, respostasDominio)
+	// 4. Chamar o serviço de aplicação.
+	err = h.service.ConfirmarPresencaGrupo(r.Context(), eventoID, reqDTO.ChaveDeAcesso, respostasDominio)
 	if err != nil {
 		if errors.Is(err, domain.ErrGrupoNaoEncontrado) {
 			web.RespondError(w, r, "NAO_ENCONTRADO", "Chave de acesso não encontrada.", http.StatusNotFound)

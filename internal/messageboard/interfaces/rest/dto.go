@@ -5,6 +5,7 @@ import "time"
 
 // DeixarRecadoRequestDTO é o corpo da requisição para postar um recado.
 type DeixarRecadoRequestDTO struct {
+	IDEvento      string `json:"idEvento"`
 	ChaveDeAcesso string `json:"chaveDeAcesso"`
 	NomeDoAutor   string `json:"nomeDoAutor"`
 	Texto         string `json:"texto"`

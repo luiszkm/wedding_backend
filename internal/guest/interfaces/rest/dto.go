@@ -27,6 +27,7 @@ type ConvidadoDTO struct {
 
 // ConfirmarPresencaRequestDTO é o corpo da requisição para o novo endpoint.
 type ConfirmarPresencaRequestDTO struct {
+	IDEvento      string            `json:"idEvento"`
 	ChaveDeAcesso string            `json:"chaveDeAcesso"`
 	Respostas     []RespostaRSVPDTO `json:"respostas"`
 }

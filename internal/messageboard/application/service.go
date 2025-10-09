@@ -28,9 +28,9 @@ func NewMessageBoardService(recadoRepo domain.RecadoRepository, guestRepo guestD
 }
 
 // DeixarNovoRecado orquestra a criação de um novo recado.
-func (s *MessageBoardService) DeixarNovoRecado(ctx context.Context, chaveDeAcesso, nomeAutor, texto string) error {
+func (s *MessageBoardService) DeixarNovoRecado(ctx context.Context, eventID uuid.UUID, chaveDeAcesso, nomeAutor, texto string) error {
 	// 1. Valida a chave de acesso buscando pelo grupo de convidados.
-	grupo, err := s.guestRepo.FindByAccessKey(ctx, chaveDeAcesso)
+	grupo, err := s.guestRepo.FindByAccessKey(ctx, eventID, chaveDeAcesso)
 	if err != nil {
 		// Retorna o erro original (pode ser "não encontrado" ou outro erro técnico).
 		return fmt.Errorf("falha ao validar chave de acesso: %w", err)

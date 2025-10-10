@@ -79,3 +79,30 @@ type ConflitoSelecaoDTO struct {
 	Mensagem              string   `json:"mensagem"`
 	PresentesConflitantes []string `json:"presentesConflitantes"`
 }
+
+// SelecaoInfoDTO contém informações sobre quem confirmou o presente
+type SelecaoInfoDTO struct {
+	ChaveDeAcesso   string  `json:"chaveDeAcesso"`
+	QuantidadeCotas int     `json:"quantidadeCotas"`
+	ValorConfirmado float64 `json:"valorConfirmado,omitempty"` // apenas para fracionados
+	DataSelecao     string  `json:"dataSelecao"`
+}
+
+// PresenteAdminDTO é usado na rota admin para mostrar presentes com informações de confirmação
+type PresenteAdminDTO struct {
+	ID                string              `json:"id"`
+	Nome              string              `json:"nome"`
+	Descricao         string              `json:"descricao"`
+	FotoURL           string              `json:"fotoUrl"`
+	EhFavorito        bool                `json:"ehFavorito"`
+	Categoria         string              `json:"categoria"`
+	Detalhes          DetalhesPresenteDTO `json:"detalhes"`
+	Tipo              string              `json:"tipo"`
+	Status            string              `json:"status"`
+	ValorTotal        *float64            `json:"valorTotal,omitempty"`
+	ValorCota         *float64            `json:"valorCota,omitempty"`
+	CotasTotais       *int                `json:"cotasTotais,omitempty"`
+	CotasDisponiveis  *int                `json:"cotasDisponiveis,omitempty"`
+	CotasSelecionadas *int                `json:"cotasSelecionadas,omitempty"`
+	Selecao           *SelecaoInfoDTO     `json:"selecao,omitempty"` // null se não confirmado
+}

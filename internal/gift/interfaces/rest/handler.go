@@ -184,6 +184,79 @@ func (h *GiftHandler) HandleListarPresentesPublicos(w http.ResponseWriter, r *ht
 	web.Respond(w, r, respDTO, http.StatusOK)
 }
 
+func (h *GiftHandler) HandleListarPresentesAdmin(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
+
+	idEvento, err := uuid.Parse(chi.URLParam(r, "idCasamento"))
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do evento é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	presentesComSelecao, err := h.service.ListarTodosPresentesPorEvento(r.Context(), userID, idEvento)
+	if err != nil {
+		log.Printf("ERRO ao listar todos os presentes: %v\n", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao buscar a lista de presentes.", http.StatusInternalServerError)
+		return
+	}
+
+	respDTO := make([]PresenteAdminDTO, len(presentesComSelecao))
+	for i, pcs := range presentesComSelecao {
+		p := pcs.Presente
+		dto := PresenteAdminDTO{
+			ID:         p.ID().String(),
+			Nome:       p.Nome(),
+			Descricao:  p.Descricao(),
+			FotoURL:    p.FotoURL(),
+			EhFavorito: p.EhFavorito(),
+			Categoria:  p.Categoria(),
+			Tipo:       p.Tipo(),
+			Status:     p.Status(),
+			Detalhes: DetalhesPresenteDTO{
+				Tipo:       p.Detalhes().Tipo,
+				LinkDaLoja: p.Detalhes().LinkDaLoja,
+			},
+		}
+
+		if p.EhFracionado() {
+			valorTotal := p.ValorTotal()
+			valorCota := p.ObterValorCota()
+			cotasTotais := len(p.Cotas())
+			cotasDisponiveis := p.ContarCotasDisponiveis()
+			cotasSelecionadas := p.ContarCotasSelecionadas()
+
+			dto.ValorTotal = valorTotal
+			dto.ValorCota = &valorCota
+			dto.CotasTotais = &cotasTotais
+			dto.CotasDisponiveis = &cotasDisponiveis
+			dto.CotasSelecionadas = &cotasSelecionadas
+		}
+
+		// Adicionar informações de seleção (se houver)
+		if pcs.ChaveDeAcesso != nil && pcs.DataSelecao != nil {
+			valorConfirmado := 0.0
+			if p.EhFracionado() {
+				valorConfirmado = p.ObterValorCota() * float64(pcs.QuantidadeCotas)
+			}
+
+			dto.Selecao = &SelecaoInfoDTO{
+				ChaveDeAcesso:   *pcs.ChaveDeAcesso,
+				QuantidadeCotas: pcs.QuantidadeCotas,
+				ValorConfirmado: valorConfirmado,
+				DataSelecao:     pcs.DataSelecao.Format("2006-01-02T15:04:05Z07:00"),
+			}
+		}
+
+		respDTO[i] = dto
+	}
+
+	web.Respond(w, r, respDTO, http.StatusOK)
+}
+
 func (h *GiftHandler) HandleFinalizarSelecao(w http.ResponseWriter, r *http.Request) {
 	var reqDTO FinalizarSelecaoRequestDTO
 	if err := json.NewDecoder(r.Body).Decode(&reqDTO); err != nil {

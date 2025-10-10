@@ -80,7 +80,7 @@ func main() {
 	}
 	corsAllowedMethods := os.Getenv("CORS_ALLOWED_METHODS")
 	if corsAllowedMethods == "" {
-		corsAllowedMethods = "GET,POST,PUT,DELETE,OPTIONS"
+		corsAllowedMethods = "GET,POST,PUT,PATCH,DELETE,OPTIONS"
 	}
 	corsAllowedHeaders := os.Getenv("CORS_ALLOWED_HEADERS")
 	if corsAllowedHeaders == "" {
@@ -185,6 +185,7 @@ func main() {
 			r.Get("/eventos/{idEvento}/rsvp-stats", guestHandler.HandleObterEstatisticasRSVP)
 			// rota de presentes
 			r.Post("/eventos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
+			r.Get("/eventos/{idCasamento}/presentes", presenteHandler.HandleListarPresentesAdmin)
 
 			//  rota de Recados
 			r.Post("/recados", recadoHandler.HandleDeixarRecado)

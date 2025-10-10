@@ -57,20 +57,23 @@ type ListarGruposResponseDTO struct {
 
 // GrupoResumoDTO representa um grupo resumido na listagem
 type GrupoResumoDTO struct {
-	ID                    string `json:"id"`
-	ChaveDeAcesso         string `json:"chaveDeAcesso"`
-	TotalConvidados       int    `json:"totalConvidados"`
-	ConvidadosConfirmados int    `json:"convidadosConfirmados"`
-	ConvidadosRecusados   int    `json:"convidadosRecusados"`
-	ConvidadosPendentes   int    `json:"convidadosPendentes"`
+	ID                    string         `json:"id"`
+	ChaveDeAcesso         string         `json:"chaveDeAcesso"`
+	TotalConvidados       int            `json:"totalConvidados"`
+	ConvidadosConfirmados int            `json:"convidadosConfirmados"`
+	ConvidadosRecusados   int            `json:"convidadosRecusados"`
+	ConvidadosPendentes   int            `json:"convidadosPendentes"`
+	Convidados            []ConvidadoDTO `json:"convidados"`
+	DataConfirmacao       *string        `json:"dataConfirmacao,omitempty"`
 }
 
 // GrupoDetalhadoDTO representa um grupo com todos os detalhes
 type GrupoDetalhadoDTO struct {
-	ID            string         `json:"id"`
-	IDEvento      string         `json:"idEvento"`
-	ChaveDeAcesso string         `json:"chaveDeAcesso"`
-	Convidados    []ConvidadoDTO `json:"convidados"`
+	ID              string         `json:"id"`
+	IDEvento        string         `json:"idEvento"`
+	ChaveDeAcesso   string         `json:"chaveDeAcesso"`
+	Convidados      []ConvidadoDTO `json:"convidados"`
+	DataConfirmacao *string        `json:"dataConfirmacao,omitempty"`
 }
 
 // EstatisticasRSVPDTO representa as estatísticas de RSVP

@@ -78,6 +78,21 @@ func (s *GiftService) ListarPresentesDisponiveis(ctx context.Context, casamentoI
 	return presentes, nil
 }
 
+func (s *GiftService) ListarTodosPresentesPorEvento(ctx context.Context, userID, eventoID uuid.UUID) ([]*domain.PresenteComSelecao, error) {
+	// Verificar permissão: evento deve pertencer ao usuário
+	_, err := s.eventRepo.FindByID(ctx, userID, eventoID)
+	if err != nil {
+		return nil, fmt.Errorf("permissão negada ou evento não encontrado: %w", err)
+	}
+
+	presentesComSelecao, err := s.repo.ListarTodosPorEvento(ctx, eventoID)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao buscar todos os presentes do evento: %w", err)
+	}
+
+	return presentesComSelecao, nil
+}
+
 func (s *GiftService) FinalizarSelecaoDePresentes(ctx context.Context, chaveDeAcesso string, itens []ItemSelecao) (*domain.Selecao, error) {
 	if len(itens) == 0 {
 		return nil, errors.New("a lista de presentes não pode estar vazia")

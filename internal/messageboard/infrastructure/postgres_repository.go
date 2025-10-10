@@ -24,7 +24,7 @@ func NewPostgresRecadoRepository(db *pgxpool.Pool) domain.RecadoRepository {
 func (r *PostgresRecadoRepository) Save(ctx context.Context, recado *domain.Recado) error {
 	sql := `
 		INSERT INTO recados (
-			id, id_casamento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at
+			id, id_evento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 	`
 	_, err := r.db.Exec(ctx, sql,
@@ -46,9 +46,9 @@ func (r *PostgresRecadoRepository) Save(ctx context.Context, recado *domain.Reca
 func (r *PostgresRecadoRepository) ListarPorEvento(ctx context.Context, casamentoID uuid.UUID) ([]*domain.Recado, error) {
 	sql := `
 		SELECT
-			id, id_casamento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at
+			id, id_evento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at
 		FROM recados
-		WHERE id_casamento = $1
+		WHERE id_evento = $1
 		ORDER BY created_at DESC;
 	`
 	rows, err := r.db.Query(ctx, sql, casamentoID)
@@ -87,7 +87,7 @@ func (r *PostgresRecadoRepository) FindByID(ctx context.Context, userID, recadoI
 		JOIN eventos e ON r.id_evento = e.id
 		WHERE r.id = $1 AND e.id_usuario = $2
 	`
-	row := r.db.QueryRow(ctx, sql, recadoID)
+	row := r.db.QueryRow(ctx, sql, recadoID, userID)
 
 	var id, idCasamento, idGrupo uuid.UUID
 	var nomeAutor, texto, status string
@@ -126,9 +126,9 @@ func (r *PostgresRecadoRepository) ListarAprovadosPorCasamento(ctx context.Conte
 	// - Ordena por 'eh_favorito' e depois pela data de criação
 	sql := `
 		SELECT
-			id, id_casamento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at
+			id, id_evento, id_grupo_de_convidados, nome_do_autor, texto, status, eh_favorito, created_at
 		FROM recados
-		WHERE id_casamento = $1 AND status = 'APROVADO'
+		WHERE id_evento = $1 AND status = 'APROVADO'
 		ORDER BY eh_favorito DESC, created_at DESC;
 	`
 	rows, err := r.db.Query(ctx, sql, casamentoID)

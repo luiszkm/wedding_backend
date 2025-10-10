@@ -1,11 +1,16 @@
 # Testes de Mural de Recados - Wedding API
 
 ### Variáveis
-@baseUrl = http://localhost:3000/v1
-@authToken = {{authToken}}
-@eventoId = {{eventoId}}
-@chaveAcesso = {{chaveAcesso}}
+### Variáveis
+@baseUrl = http://localhost:8080/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjA0OTI3MjIsImlhdCI6MTc1OTg4NzkyMiwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.QoqFlM8omlM_IyWNg6fXtWHUm0EouZHowho2ziPYF0U
 
+# Variáveis dinâmicas - serão preenchidas pelos testes
+@eventoId =4c98ca52-eab3-4057-bd34-e5904a12cd56
+@chaveAcesso =festa
+@convidado1Id = 99712939-bd8d-49f5-a901-3e94671ce1c1
+@convidado2Id = a002d656-810a-427e-b102-037622ceb36b
+@recadoId = 5ea86fb8-1686-4f32-8b01-d5de017d546b
 ###
 
 # Deixar recado público
@@ -13,6 +18,7 @@ POST {{baseUrl}}/recados
 Content-Type: application/json
 
 {
+  "idEvento": "{{eventoId}}",
   "chaveDeAcesso": "{{chaveAcesso}}",
   "nomeDoAutor": "Carlos Silva",
   "texto": "Que Deus abençoe esta união! Desejamos muita felicidade ao casal!"
@@ -25,8 +31,9 @@ POST {{baseUrl}}/recados
 Content-Type: application/json
 
 {
-  "chaveDeAcesso": "familia456",
-  "nomeDoAutor": "Maria Silva", 
+  "idEvento": "{{eventoId}}",
+  "chaveDeAcesso": "{{chaveAcesso}}",
+  "nomeDoAutor": "Maria Silva",
   "texto": "Parabéns aos noivos! Que seja uma vida cheia de amor e alegria!"
 }
 

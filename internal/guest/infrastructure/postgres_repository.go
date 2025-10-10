@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -60,7 +61,7 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, eventID u
 	// Filtramos por id_evento E chave_de_acesso para evitar ambiguidade
 	sql := `
 		SELECT
-			g.id, g.id_evento, g.chave_de_acesso,
+			g.id, g.id_evento, g.chave_de_acesso, g.created_at, g.updated_at,
 			c.id, c.nome, c.status_rsvp
 		FROM convidados_grupos g
 		LEFT JOIN convidados c ON g.id = c.id_grupo
@@ -79,6 +80,7 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, eventID u
 	for rows.Next() {
 		var grupoID, idCasamento, convidadoID uuid.UUID
 		var chaveDeAcesso, nomeConvidado, statusRSVP string
+		var createdAt, updatedAt time.Time
 
 		// Usamos ponteiros para os campos de convidados para detectar quando eles são NULL
 		// (no caso de um grupo sem convidados).
@@ -86,7 +88,7 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, eventID u
 		var pNomeConvidado, pStatusRSVP *string
 
 		if err := rows.Scan(
-			&grupoID, &idCasamento, &chaveDeAcesso,
+			&grupoID, &idCasamento, &chaveDeAcesso, &createdAt, &updatedAt,
 			&pConvidadoID, &pNomeConvidado, &pStatusRSVP,
 		); err != nil {
 			return nil, fmt.Errorf("falha ao escanear linha da consulta: %w", err)
@@ -94,7 +96,7 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, eventID u
 
 		// Se o grupo ainda não foi criado, criamo-lo com os dados da primeira linha.
 		if grupo == nil {
-			grupo = domain.HydrateGroup(grupoID, idCasamento, chaveDeAcesso, nil)
+			grupo = domain.HydrateGroup(grupoID, idCasamento, chaveDeAcesso, nil, createdAt, updatedAt)
 		}
 
 		// Se houver dados de convidado na linha, criamos o objeto convidado.
@@ -117,15 +119,15 @@ func (r *PostgresGroupRepository) FindByAccessKey(ctx context.Context, eventID u
 	}
 
 	// "Hidratamos" o agregado com sua lista de convidados.
-	grupo = domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidados)
+	grupo = domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidados, grupo.CreatedAt(), grupo.UpdatedAt())
 
 	return grupo, nil
 }
 
 func (r *PostgresGroupRepository) FindByID(ctx context.Context, userID, groupID uuid.UUID) (*domain.GrupoDeConvidados, error) {
 	sql := `
-		SELECT 
-			g.id, g.id_evento, g.chave_de_acesso,
+		SELECT
+			g.id, g.id_evento, g.chave_de_acesso, g.created_at, g.updated_at,
 			c.id, c.nome, c.status_rsvp
 		FROM convidados_grupos g
 		JOIN eventos e ON g.id_evento = e.id
@@ -144,18 +146,19 @@ func (r *PostgresGroupRepository) FindByID(ctx context.Context, userID, groupID 
 	for rows.Next() {
 		var grupoID, idCasamento, convidadoID uuid.UUID
 		var chaveDeAcesso, nomeConvidado, statusRSVP string
+		var createdAt, updatedAt time.Time
 		var pConvidadoID *uuid.UUID
 		var pNomeConvidado, pStatusRSVP *string
 
 		if err := rows.Scan(
-			&grupoID, &idCasamento, &chaveDeAcesso,
+			&grupoID, &idCasamento, &chaveDeAcesso, &createdAt, &updatedAt,
 			&pConvidadoID, &pNomeConvidado, &pStatusRSVP,
 		); err != nil {
 			return nil, fmt.Errorf("falha ao escanear linha da consulta de grupo por id: %w", err)
 		}
 
 		if grupo == nil {
-			grupo = domain.HydrateGroup(grupoID, idCasamento, chaveDeAcesso, nil)
+			grupo = domain.HydrateGroup(grupoID, idCasamento, chaveDeAcesso, nil, createdAt, updatedAt)
 		}
 
 		if pConvidadoID != nil {
@@ -176,7 +179,7 @@ func (r *PostgresGroupRepository) FindByID(ctx context.Context, userID, groupID 
 	}
 
 	// "Hidratamos" o agregado com sua lista de convidados
-	grupo = domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidados)
+	grupo = domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidados, grupo.CreatedAt(), grupo.UpdatedAt())
 
 	return grupo, nil
 }
@@ -232,8 +235,8 @@ func (r *PostgresGroupRepository) Update(ctx context.Context, userID uuid.UUID, 
 
 func (r *PostgresGroupRepository) FindAllByEventID(ctx context.Context, userID, eventID uuid.UUID, statusFilter string) ([]*domain.GrupoDeConvidados, error) {
 	baseSQL := `
-		SELECT 
-			g.id, g.id_evento, g.chave_de_acesso,
+		SELECT
+			g.id, g.id_evento, g.chave_de_acesso, g.created_at, g.updated_at,
 			c.id, c.nome, c.status_rsvp
 		FROM convidados_grupos g
 		JOIN eventos e ON g.id_evento = e.id
@@ -261,11 +264,12 @@ func (r *PostgresGroupRepository) FindAllByEventID(ctx context.Context, userID, 
 	for rows.Next() {
 		var grupoID, idEvento, convidadoID uuid.UUID
 		var chaveDeAcesso, nomeConvidado, statusRSVP string
+		var createdAt, updatedAt time.Time
 		var pConvidadoID *uuid.UUID
 		var pNomeConvidado, pStatusRSVP *string
 
 		if err := rows.Scan(
-			&grupoID, &idEvento, &chaveDeAcesso,
+			&grupoID, &idEvento, &chaveDeAcesso, &createdAt, &updatedAt,
 			&pConvidadoID, &pNomeConvidado, &pStatusRSVP,
 		); err != nil {
 			return nil, fmt.Errorf("falha ao escanear linha da consulta por evento: %w", err)
@@ -273,7 +277,7 @@ func (r *PostgresGroupRepository) FindAllByEventID(ctx context.Context, userID, 
 
 		grupo, existe := gruposMap[grupoID]
 		if !existe {
-			grupo = domain.HydrateGroup(grupoID, idEvento, chaveDeAcesso, nil)
+			grupo = domain.HydrateGroup(grupoID, idEvento, chaveDeAcesso, nil, createdAt, updatedAt)
 			gruposMap[grupoID] = grupo
 			gruposOrdenados = append(gruposOrdenados, grupo)
 		}
@@ -287,7 +291,7 @@ func (r *PostgresGroupRepository) FindAllByEventID(ctx context.Context, userID, 
 			// Precisa recriar o grupo com os convidados atualizados
 			convidadosAtuais := grupo.Convidados()
 			convidadosAtualizados := append(convidadosAtuais, convidado)
-			grupoAtualizado := domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidadosAtualizados)
+			grupoAtualizado := domain.HydrateGroup(grupo.ID(), grupo.IDCasamento(), grupo.ChaveDeAcesso(), convidadosAtualizados, grupo.CreatedAt(), grupo.UpdatedAt())
 			gruposMap[grupoID] = grupoAtualizado
 
 			// Atualizar na lista ordenada também
@@ -396,6 +400,12 @@ func (r *PostgresGroupRepository) UpdateRSVP(ctx context.Context, group *domain.
 		return fmt.Errorf("falha ao iniciar transação para update de rsvp: %w", err)
 	}
 	defer tx.Rollback(ctx)
+
+	// Atualiza o updated_at do grupo
+	updateGroupSQL := "UPDATE convidados_grupos SET updated_at = $1 WHERE id = $2"
+	if _, err := tx.Exec(ctx, updateGroupSQL, group.UpdatedAt(), group.ID()); err != nil {
+		return fmt.Errorf("falha ao atualizar updated_at do grupo: %w", err)
+	}
 
 	// Prepara um lote para atualizar todos os convidados de uma vez.
 	batch := &pgx.Batch{}

@@ -3,6 +3,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -237,6 +238,151 @@ func (r *PostgresPresenteRepository) ListarDisponiveisPorCasamento(ctx context.C
 	}
 
 	return presentes, nil
+}
+
+func (r *PostgresPresenteRepository) ListarTodosPorEvento(ctx context.Context, eventoID uuid.UUID) ([]*domain.PresenteComSelecao, error) {
+	// Query unificada que retorna presentes com suas confirmações
+	// Presentes fracionados aparecem múltiplas vezes (uma para cada palavra mágica diferente)
+	sql := `
+		WITH presentes_integrais AS (
+			-- Presentes integrais: retorna com seleção se houver, ou sem seleção (null) se disponível
+			SELECT
+				p.id, p.id_evento, p.nome, p.descricao, p.foto_url,
+				p.status, p.categoria, p.eh_favorito,
+				p.detalhes_tipo, p.detalhes_link_loja, p.tipo, p.valor_total_presente,
+				cg.chave_de_acesso,
+				ps.data_da_selecao,
+				CASE WHEN ps.id IS NOT NULL THEN 1 ELSE 0 END as quantidade_cotas
+			FROM presentes p
+			LEFT JOIN cotas_de_presentes cp ON cp.id_presente = p.id AND cp.status != 'DISPONIVEL'
+			LEFT JOIN presentes_selecoes ps ON ps.id = cp.id_selecao
+			LEFT JOIN convidados_grupos cg ON cg.id = ps.id_grupo_de_convidados
+			WHERE p.id_evento = $1 AND p.tipo = 'INTEGRAL'
+		),
+		presentes_fracionados_com_selecao AS (
+			-- Presentes fracionados com pelo menos 1 cota selecionada
+			-- Agrupa por palavra mágica (pode retornar múltiplas linhas por presente)
+			SELECT
+				p.id, p.id_evento, p.nome, p.descricao, p.foto_url,
+				p.status, p.categoria, p.eh_favorito,
+				p.detalhes_tipo, p.detalhes_link_loja, p.tipo, p.valor_total_presente,
+				cg.chave_de_acesso,
+				ps.data_da_selecao,
+				COUNT(cp.id)::int as quantidade_cotas
+			FROM presentes p
+			INNER JOIN cotas_de_presentes cp ON cp.id_presente = p.id AND cp.status != 'DISPONIVEL'
+			INNER JOIN presentes_selecoes ps ON ps.id = cp.id_selecao
+			INNER JOIN convidados_grupos cg ON cg.id = ps.id_grupo_de_convidados
+			WHERE p.id_evento = $1 AND p.tipo = 'FRACIONADO'
+			GROUP BY p.id, p.id_evento, p.nome, p.descricao, p.foto_url,
+					p.status, p.categoria, p.eh_favorito,
+					p.detalhes_tipo, p.detalhes_link_loja, p.tipo, p.valor_total_presente,
+					cg.chave_de_acesso, ps.data_da_selecao
+		),
+		presentes_fracionados_disponiveis AS (
+			-- Presentes fracionados que ainda têm cotas disponíveis (aparecem 1x com selecao=null)
+			SELECT
+				p.id, p.id_evento, p.nome, p.descricao, p.foto_url,
+				p.status, p.categoria, p.eh_favorito,
+				p.detalhes_tipo, p.detalhes_link_loja, p.tipo, p.valor_total_presente,
+				NULL::VARCHAR as chave_de_acesso,
+				NULL::TIMESTAMP WITH TIME ZONE as data_da_selecao,
+				0 as quantidade_cotas
+			FROM presentes p
+			WHERE p.id_evento = $1
+				AND p.tipo = 'FRACIONADO'
+				AND p.status IN ('DISPONIVEL', 'PARCIALMENTE_SELECIONADO')
+		)
+		SELECT * FROM presentes_integrais
+		UNION ALL
+		SELECT * FROM presentes_fracionados_com_selecao
+		UNION ALL
+		SELECT * FROM presentes_fracionados_disponiveis
+		ORDER BY nome ASC, data_da_selecao ASC NULLS FIRST;
+	`
+
+	rows, err := r.db.Query(ctx, sql, eventoID)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao listar todos os presentes com seleções: %w", err)
+	}
+	defer rows.Close()
+
+	var resultado []*domain.PresenteComSelecao
+	presentesMap := make(map[uuid.UUID]*domain.Presente)
+
+	for rows.Next() {
+		var d domain.DetalhesPresente
+		var id, idCasamento uuid.UUID
+		var nome, status, detalhesTipo, tipo string
+		var ehFavorito bool
+		var pDesc, pFotoURL, pLinkLoja, pCategoria, pChaveDeAcesso *string
+		var pValorTotal *float64
+		var pDataSelecao *time.Time
+		var quantidadeCotas int
+
+		if err := rows.Scan(
+			&id, &idCasamento, &nome, &pDesc, &pFotoURL, &status, &pCategoria, &ehFavorito,
+			&detalhesTipo, &pLinkLoja, &tipo, &pValorTotal,
+			&pChaveDeAcesso, &pDataSelecao, &quantidadeCotas,
+		); err != nil {
+			return nil, fmt.Errorf("falha ao escanear linha de presente com seleção: %w", err)
+		}
+
+		// Construir presente
+		descricao := ""
+		if pDesc != nil {
+			descricao = *pDesc
+		}
+
+		fotoURL := ""
+		if pFotoURL != nil {
+			fotoURL = *pFotoURL
+		}
+
+		detalhesLinkLoja := ""
+		if pLinkLoja != nil {
+			detalhesLinkLoja = *pLinkLoja
+		}
+
+		categoria := ""
+		if pCategoria != nil {
+			categoria = *pCategoria
+		}
+
+		d.Tipo = detalhesTipo
+		d.LinkDaLoja = detalhesLinkLoja
+
+		// Verificar se já temos este presente no mapa
+		presente, exists := presentesMap[id]
+		if !exists {
+			presente = domain.HydratePresente(id, idCasamento, nome, descricao, fotoURL, status, categoria, tipo, ehFavorito, d, pValorTotal, nil)
+			presentesMap[id] = presente
+		}
+
+		// Criar registro de PresenteComSelecao
+		pcs := &domain.PresenteComSelecao{
+			Presente:        presente,
+			ChaveDeAcesso:   pChaveDeAcesso,
+			QuantidadeCotas: quantidadeCotas,
+			DataSelecao:     pDataSelecao,
+		}
+
+		resultado = append(resultado, pcs)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("erro durante iteração das linhas: %w", err)
+	}
+
+	// Carregar cotas para presentes fracionados
+	if len(presentesMap) > 0 {
+		err = r.loadCotas(ctx, presentesMap)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return resultado, nil
 }
 
 func (r *PostgresPresenteRepository) scanPresente(rows pgx.Rows) (*domain.Presente, error) {

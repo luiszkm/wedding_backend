@@ -4,7 +4,7 @@
 ### Variáveis
 @baseUrl = http://localhost:8080/v1
 @authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjA0OTI3MjIsImlhdCI6MTc1OTg4NzkyMiwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.QoqFlM8omlM_IyWNg6fXtWHUm0EouZHowho2ziPYF0U
-@eventoId = 70131545-f884-49ba-860f-438b22edc1d2
+@eventoId = 4c98ca52-eab3-4057-bd34-e5904a12cd56
 
 ###
 
@@ -68,6 +68,45 @@ Content-Type: application/json
 
 # Listar presentes públicos
 GET {{baseUrl}}/eventos/{{eventoId}}/presentes-publico
+
+###
+
+# Listar todos os presentes (Admin - Autenticado)
+# Retorna presentes com informações de confirmação
+# Presentes fracionados com múltiplas confirmações aparecem múltiplas vezes
+GET {{baseUrl}}/eventos/{{eventoId}}/presentes
+Authorization: Bearer {{authToken}}
+
+# Resposta esperada:
+# - Presentes INTEGRAIS: aparecem 1x (com selecao ou null)
+# - Presentes FRACIONADOS: aparecem múltiplas vezes se houver várias confirmações
+#   Exemplo:
+#   [
+#     {
+#       "id": "uuid-geladeira",
+#       "nome": "Geladeira",
+#       "tipo": "FRACIONADO",
+#       "cotasTotais": 10,
+#       "selecao": {
+#         "chaveDeAcesso": "familia-silva",
+#         "quantidadeCotas": 5,
+#         "valorConfirmado": 1250.00,
+#         "dataSelecao": "2025-01-15T10:30:00Z"
+#       }
+#     },
+#     {
+#       "id": "uuid-geladeira",  # MESMO presente, outra confirmação
+#       "nome": "Geladeira",
+#       "tipo": "FRACIONADO",
+#       "cotasTotais": 10,
+#       "selecao": {
+#         "chaveDeAcesso": "familia-santos",
+#         "quantidadeCotas": 3,
+#         "valorConfirmado": 750.00,
+#         "dataSelecao": "2025-01-16T14:00:00Z"
+#       }
+#     }
+#   ]
 
 ###
 

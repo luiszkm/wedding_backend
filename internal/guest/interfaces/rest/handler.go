@@ -248,7 +248,14 @@ func (h *GuestHandler) HandleListarGruposPorEvento(w http.ResponseWriter, r *htt
 		recusados := 0
 		pendentes := 0
 
-		for _, convidado := range grupo.Convidados() {
+		convidadosDTO := make([]ConvidadoDTO, len(grupo.Convidados()))
+		for j, convidado := range grupo.Convidados() {
+			convidadosDTO[j] = ConvidadoDTO{
+				ID:         convidado.ID().String(),
+				Nome:       convidado.Nome(),
+				StatusRSVP: convidado.StatusRSVP(),
+			}
+
 			switch convidado.StatusRSVP() {
 			case "CONFIRMADO":
 				confirmados++
@@ -259,6 +266,13 @@ func (h *GuestHandler) HandleListarGruposPorEvento(w http.ResponseWriter, r *htt
 			}
 		}
 
+		// Formatar data de confirmação (updated_at) se houver confirmações
+		var dataConfirmacao *string
+		if confirmados > 0 || recusados > 0 {
+			dataStr := grupo.UpdatedAt().Format("2006-01-02T15:04:05Z07:00")
+			dataConfirmacao = &dataStr
+		}
+
 		gruposDTO[i] = GrupoResumoDTO{
 			ID:                    grupo.ID().String(),
 			ChaveDeAcesso:         grupo.ChaveDeAcesso(),
@@ -266,6 +280,8 @@ func (h *GuestHandler) HandleListarGruposPorEvento(w http.ResponseWriter, r *htt
 			ConvidadosConfirmados: confirmados,
 			ConvidadosRecusados:   recusados,
 			ConvidadosPendentes:   pendentes,
+			Convidados:            convidadosDTO,
+			DataConfirmacao:       dataConfirmacao,
 		}
 	}
 
@@ -304,19 +320,34 @@ func (h *GuestHandler) HandleObterGrupoPorID(w http.ResponseWriter, r *http.Requ
 
 	// Mapear para DTO detalhado
 	convidadosDTO := make([]ConvidadoDTO, len(grupo.Convidados()))
+	confirmados := 0
+	recusados := 0
 	for i, c := range grupo.Convidados() {
 		convidadosDTO[i] = ConvidadoDTO{
 			ID:         c.ID().String(),
 			Nome:       c.Nome(),
 			StatusRSVP: c.StatusRSVP(),
 		}
+		if c.StatusRSVP() == "CONFIRMADO" {
+			confirmados++
+		} else if c.StatusRSVP() == "RECUSADO" {
+			recusados++
+		}
+	}
+
+	// Formatar data de confirmação se houver confirmações
+	var dataConfirmacao *string
+	if confirmados > 0 || recusados > 0 {
+		dataStr := grupo.UpdatedAt().Format("2006-01-02T15:04:05Z07:00")
+		dataConfirmacao = &dataStr
 	}
 
 	respDTO := GrupoDetalhadoDTO{
-		ID:            grupo.ID().String(),
-		IDEvento:      grupo.IDCasamento().String(),
-		ChaveDeAcesso: grupo.ChaveDeAcesso(),
-		Convidados:    convidadosDTO,
+		ID:              grupo.ID().String(),
+		IDEvento:        grupo.IDCasamento().String(),
+		ChaveDeAcesso:   grupo.ChaveDeAcesso(),
+		Convidados:      convidadosDTO,
+		DataConfirmacao: dataConfirmacao,
 	}
 
 	web.Respond(w, r, respDTO, http.StatusOK)

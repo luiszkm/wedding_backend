@@ -128,12 +128,14 @@ func NewGrupoDeConvidados(idCasamento uuid.UUID, chaveDeAcesso string, nomesDosC
 	}, nil
 }
 
-func HydrateGroup(id, idCasamento uuid.UUID, chaveDeAcesso string, convidados []*Convidado) *GrupoDeConvidados {
+func HydrateGroup(id, idCasamento uuid.UUID, chaveDeAcesso string, convidados []*Convidado, createdAt, updatedAt time.Time) *GrupoDeConvidados {
 	return &GrupoDeConvidados{
 		id:            id,
 		idCasamento:   idCasamento,
 		chaveDeAcesso: chaveDeAcesso,
 		convidados:    convidados,
+		createdAt:     createdAt,
+		updatedAt:     updatedAt,
 	}
 }
 
@@ -189,6 +191,7 @@ func (g *GrupoDeConvidados) ID() uuid.UUID            { return g.id }
 func (g *GrupoDeConvidados) IDCasamento() uuid.UUID   { return g.idCasamento }
 func (g *GrupoDeConvidados) ChaveDeAcesso() string    { return g.chaveDeAcesso }
 func (g *GrupoDeConvidados) Convidados() []*Convidado { return g.convidados }
+func (g *GrupoDeConvidados) CreatedAt() time.Time     { return g.createdAt }
 func (c *Convidado) ID() uuid.UUID                    { return c.id }
 func (c *Convidado) Nome() string                     { return c.nome }
 func (c *Convidado) StatusRSVP() string               { return c.statusRSVP }

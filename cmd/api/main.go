@@ -56,7 +56,10 @@ import (
 )
 
 func main() {
-	port := ":8080"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("Aviso: arquivo .env não encontrado.")

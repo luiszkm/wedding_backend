@@ -25,6 +25,17 @@ type CriarPresenteResponseDTO struct {
 	IDPresente string `json:"idPresente"`
 }
 
+// AtualizarPresenteRequestDTO é o contrato de entrada para atualizar um presente.
+type AtualizarPresenteRequestDTO struct {
+	Nome       string              `json:"nome"`
+	Descricao  string              `json:"descricao"`
+	EhFavorito bool                `json:"ehFavorito"`
+	FotoURL    string              `json:"fotoUrl,omitempty"`
+	Categoria  string              `json:"categoria"`
+	Tipo       string              `json:"tipo"` // Somente para validação, não pode ser alterado
+	Detalhes   DetalhesPresenteDTO `json:"detalhes"`
+}
+
 type PresentePublicoDTO struct {
 	ID         string              `json:"id"`
 	Nome       string              `json:"nome"`

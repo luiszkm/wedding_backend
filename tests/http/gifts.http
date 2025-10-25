@@ -3,7 +3,7 @@
 
 ### Variáveis
 @baseUrl = http://localhost:8080/v1
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjA0OTI3MjIsImlhdCI6MTc1OTg4NzkyMiwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.QoqFlM8omlM_IyWNg6fXtWHUm0EouZHowho2ziPYF0U
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjIwMDE2NTksImlhdCI6MTc2MTM5Njg1OSwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.r-9s985v8jW0FLUz4lT7TnMVMhMp5Pmsrg56-U6r9VY
 @eventoId = 4c98ca52-eab3-4057-bd34-e5904a12cd56
 
 ###

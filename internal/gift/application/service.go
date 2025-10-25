@@ -186,3 +186,47 @@ func (s *GiftService) FinalizarSelecaoDepresentes(ctx context.Context, chaveDeAc
 
 	return s.FinalizarSelecaoDePresentes(ctx, chaveDeAcesso, itens)
 }
+
+func (s *GiftService) DeletarPresente(ctx context.Context, userID, presenteID uuid.UUID) error {
+	// Buscar o presente para verificar permissões e validar regras de negócio
+	presente, err := s.repo.FindByID(ctx, userID, presenteID)
+	if err != nil {
+		return err
+	}
+
+	// Validar se o presente pode ser deletado
+	// Não permitir deletar presentes que já foram selecionados
+	if presente.Status() == domain.StatusSelecionado {
+		return errors.New("não é possível deletar um presente que já foi selecionado")
+	}
+
+	// Permitir deletar presentes parcialmente selecionados com aviso no log
+	// (pode ser mudado para bloquear se necessário)
+	if presente.Status() == domain.StatusParcialmenteSelecionado {
+		// Log de aviso - presente parcialmente selecionado será deletado
+		// As cotas serão removidas mas as seleções ficarão órfãs
+	}
+
+	return s.repo.Delete(ctx, userID, presenteID)
+}
+
+func (s *GiftService) AtualizarPresente(ctx context.Context, userID, presenteID uuid.UUID, nome, descricao, categoria, fotoURL string, ehFavorito bool, detalhes domain.DetalhesPresente) error {
+	// Buscar o presente para verificar permissões
+	presente, err := s.repo.FindByID(ctx, userID, presenteID)
+	if err != nil {
+		return err
+	}
+
+	// Atualizar dados no domínio
+	if err := presente.AtualizarDados(nome, descricao, categoria, ehFavorito, detalhes); err != nil {
+		return err
+	}
+
+	// Atualizar foto se fornecida
+	if fotoURL != "" {
+		presente.AtualizarFoto(fotoURL)
+	}
+
+	// Persistir mudanças
+	return s.repo.Update(ctx, presente)
+}

@@ -186,6 +186,8 @@ func main() {
 			// rota de presentes
 			r.Post("/eventos/{idCasamento}/presentes", presenteHandler.HandleCriarPresente)
 			r.Get("/eventos/{idCasamento}/presentes", presenteHandler.HandleListarPresentesAdmin)
+			r.Put("/eventos/{idCasamento}/presentes/{idPresente}", presenteHandler.HandleAtualizarPresente)
+			r.Delete("/eventos/{idCasamento}/presentes/{idPresente}", presenteHandler.HandleDeletarPresente)
 
 			//  rota de Recados
 			r.Post("/recados", recadoHandler.HandleDeixarRecado)

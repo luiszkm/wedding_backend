@@ -397,3 +397,121 @@ func stringUUIDs(uuids []uuid.UUID) []string {
 	}
 	return ids
 }
+
+func (h *GiftHandler) HandleDeletarPresente(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
+
+	presenteID, err := uuid.Parse(chi.URLParam(r, "idPresente"))
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do presente é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	err = h.service.DeletarPresente(r.Context(), userID, presenteID)
+	if err != nil {
+		if errors.Is(err, domain.ErrPresenteNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Presente não encontrado.", http.StatusNotFound)
+			return
+		}
+		log.Printf("ERRO ao deletar presente: %v", err)
+		web.RespondError(w, r, "ERRO_INTERNO", err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *GiftHandler) HandleAtualizarPresente(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value(auth.UserContextKey).(uuid.UUID)
+	if !ok {
+		web.RespondError(w, r, "TOKEN_INVALIDO", "ID de usuário ausente no token.", http.StatusUnauthorized)
+		return
+	}
+
+	presenteID, err := uuid.Parse(chi.URLParam(r, "idPresente"))
+	if err != nil {
+		web.RespondError(w, r, "PARAMETRO_INVALIDO", "O ID do presente é inválido.", http.StatusBadRequest)
+		return
+	}
+
+	// Tentar parsear como multipart primeiro (caso tenha foto)
+	var reqDTO AtualizarPresenteRequestDTO
+	var fotoFinalURL string
+
+	if r.Header.Get("Content-Type") != "" && len(r.Header.Get("Content-Type")) >= 19 && r.Header.Get("Content-Type")[:19] == "multipart/form-data" {
+		if err := r.ParseMultipartForm(10 << 20); err != nil {
+			web.RespondError(w, r, "CORPO_GRANDE", "Requisição muito grande.", http.StatusBadRequest)
+			return
+		}
+
+		presenteJSON := r.FormValue("presente")
+		if err := json.Unmarshal([]byte(presenteJSON), &reqDTO); err != nil {
+			web.RespondError(w, r, "DADOS_INVALIDOS", "Os dados do presente estão malformados.", http.StatusBadRequest)
+			return
+		}
+
+		// Processar upload de foto se houver
+		file, fileHeader, err := r.FormFile("foto")
+		if err != nil && err != http.ErrMissingFile {
+			web.RespondError(w, r, "ERRO_ARQUIVO", "Erro ao processar o arquivo.", http.StatusBadRequest)
+			return
+		}
+
+		if file != nil {
+			defer file.Close()
+			uploadedURL, _, err := h.storageService.Upload(r.Context(), file, fileHeader.Header.Get("Content-Type"), fileHeader.Size)
+			if err != nil {
+				log.Printf("ERRO de upload: %v", err)
+				web.RespondError(w, r, "UPLOAD_FALHOU", "Não foi possível enviar a imagem.", http.StatusInternalServerError)
+				return
+			}
+			fotoFinalURL = uploadedURL
+		} else {
+			fotoFinalURL = reqDTO.FotoURL
+		}
+	} else {
+		// JSON simples
+		if err := json.NewDecoder(r.Body).Decode(&reqDTO); err != nil {
+			web.RespondError(w, r, "CORPO_INVALIDO", "O corpo da requisição está malformado.", http.StatusBadRequest)
+			return
+		}
+		fotoFinalURL = reqDTO.FotoURL
+	}
+
+	detalhesDominio := domain.DetalhesPresente{
+		Tipo:       reqDTO.Detalhes.Tipo,
+		LinkDaLoja: reqDTO.Detalhes.LinkDaLoja,
+	}
+
+	err = h.service.AtualizarPresente(
+		r.Context(),
+		userID,
+		presenteID,
+		reqDTO.Nome,
+		reqDTO.Descricao,
+		reqDTO.Categoria,
+		fotoFinalURL,
+		reqDTO.EhFavorito,
+		detalhesDominio,
+	)
+
+	if err != nil {
+		if errors.Is(err, domain.ErrPresenteNaoEncontrado) {
+			web.RespondError(w, r, "NAO_ENCONTRADO", "Presente não encontrado.", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, domain.ErrNomePresenteObrigatorio) || errors.Is(err, domain.ErrDetalhesInvalidos) {
+			web.RespondError(w, r, "DADOS_INVALIDOS", err.Error(), http.StatusBadRequest)
+			return
+		}
+		log.Printf("ERRO ao atualizar presente: %v", err)
+		web.RespondError(w, r, "ERRO_INTERNO", "Falha ao atualizar presente.", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}

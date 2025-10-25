@@ -26,6 +26,7 @@ var (
 	ErrPresenteNaoFracionado   = errors.New("operação válida apenas para presentes fracionados")
 	ErrCotasIndisponiveis      = errors.New("não há cotas suficientes disponíveis")
 	ErrPresenteJaSelecionado   = errors.New("presente já foi completamente selecionado")
+	ErrPresenteNaoEncontrado   = errors.New("presente não encontrado")
 )
 
 type DetalhesPresente struct {
@@ -269,6 +270,29 @@ func (p *Presente) EhFracionado() bool {
 
 func (p *Presente) EhIntegral() bool {
 	return p.tipo == TipoPresenteIntegral
+}
+
+// AtualizarDados atualiza os campos editáveis de um presente
+func (p *Presente) AtualizarDados(nome, descricao, categoria string, ehFavorito bool, detalhes DetalhesPresente) error {
+	if nome == "" {
+		return ErrNomePresenteObrigatorio
+	}
+	if detalhes.Tipo == TipoDetalheProdutoExterno && detalhes.LinkDaLoja == "" {
+		return ErrDetalhesInvalidos
+	}
+
+	p.nome = nome
+	p.descricao = descricao
+	p.categoria = categoria
+	p.ehFavorito = ehFavorito
+	p.detalhes = detalhes
+
+	return nil
+}
+
+// AtualizarFoto atualiza a URL da foto do presente
+func (p *Presente) AtualizarFoto(fotoURL string) {
+	p.fotoURL = fotoURL
 }
 
 func (p *Presente) ID() uuid.UUID              { return p.id }

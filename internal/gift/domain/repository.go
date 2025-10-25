@@ -22,7 +22,9 @@ type PresenteRepository interface {
 	ListarDisponiveisPorCasamento(ctx context.Context, casamentoID uuid.UUID) ([]*Presente, error)
 	ListarTodosPorEvento(ctx context.Context, eventoID uuid.UUID) ([]*PresenteComSelecao, error)
 	FindByIDs(ctx context.Context, presenteIDs []uuid.UUID) ([]*Presente, error)
+	FindByID(ctx context.Context, userID, presenteID uuid.UUID) (*Presente, error)
 	Update(ctx context.Context, presente *Presente) error
 	SaveWithCotas(ctx context.Context, presente *Presente) error
 	UpdateCotasStatus(ctx context.Context, cotaIDs []uuid.UUID, status string, selecaoID *uuid.UUID) error
+	Delete(ctx context.Context, userID, presenteID uuid.UUID) error
 }

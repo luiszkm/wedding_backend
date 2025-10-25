@@ -1,0 +1,261 @@
+# Test Gift Selection Fix - Verify both integral and fractional gifts show who selected them
+# This test validates the fix for the issue where integral gifts were not showing the selector
+
+### Variables
+@baseUrl = http://localhost:8080/v1
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NjIwMDE2NTksImlhdCI6MTc2MTM5Njg1OSwic3ViIjoiOGNiZjRhOWUtYTI0OS00YmRkLWI1NjItOWY3NWFlNzg3ZDIzIn0.r-9s985v8jW0FLUz4lT7TnMVMhMp5Pmsrg56-U6r9VY
+@eventoId = 4c98ca52-eab3-4057-bd34-e5904a12cd56
+
+###
+
+# Step 1: Create an integral gift
+POST {{baseUrl}}/eventos/{{eventoId}}/presentes
+Content-Type: multipart/form-data; boundary=boundary-integral
+Authorization: Bearer {{authToken}}
+
+--boundary-integral
+Content-Disposition: form-data; name="presente"
+Content-Type: application/json
+
+{
+  "nome": "Liquidificador Teste Integral",
+  "descricao": "Liquidificador para teste de seleção integral",
+  "ehFavorito": false,
+  "categoria": "COZINHA",
+  "tipo": "INTEGRAL",
+  "detalhes": {
+    "tipo": "PRODUTO_EXTERNO",
+    "linkDaLoja": "https://exemplo.com/liquidificador"
+  }
+}
+--boundary-integral--
+
+> {%
+  client.global.set("presenteIntegralId", response.body.idPresente);
+  client.log("Created Integral Gift ID: " + response.body.idPresente);
+%}
+
+###
+
+# Step 2: Create a fractional gift
+POST {{baseUrl}}/eventos/{{eventoId}}/presentes
+Content-Type: multipart/form-data; boundary=boundary-frac
+Authorization: Bearer {{authToken}}
+
+--boundary-frac
+Content-Disposition: form-data; name="presente"
+Content-Type: application/json
+
+{
+  "nome": "Televisão Teste Fracionado",
+  "descricao": "TV Smart 50 polegadas",
+  "ehFavorito": false,
+  "categoria": "SALA",
+  "tipo": "FRACIONADO",
+  "valorTotal": 3000.00,
+  "numeroCotas": 10,
+  "detalhes": {
+    "tipo": "PRODUTO_EXTERNO",
+    "linkDaLoja": "https://exemplo.com/tv"
+  }
+}
+--boundary-frac--
+
+> {%
+  client.global.set("presenteFracionadoId", response.body.idPresente);
+  client.log("Created Fractional Gift ID: " + response.body.idPresente);
+%}
+
+###
+
+# Step 3: Create first guest group
+POST {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "chaveDeAcesso": "grupo-teste-integral",
+  "nomesDosConvidados": [
+    "João da Silva Teste"
+  ]
+}
+
+> {%
+  client.global.set("grupoIntegralId", response.body.idGrupo);
+  client.log("Created Group for Integral: grupo-teste-integral");
+%}
+
+###
+
+# Step 4: Create second guest group
+POST {{baseUrl}}/eventos/{{eventoId}}/grupos-de-convidados
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "chaveDeAcesso": "grupo-teste-fracionado",
+  "nomesDosConvidados": [
+    "Maria dos Santos Teste"
+  ]
+}
+
+> {%
+  client.global.set("grupoFracionadoId", response.body.idGrupo);
+  client.log("Created Group for Fractional: grupo-teste-fracionado");
+%}
+
+###
+
+# Step 5: Select the INTEGRAL gift (using grupo-teste-integral)
+POST {{baseUrl}}/finalizar-selecao
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "grupo-teste-integral",
+  "itens": [
+    {
+      "idPresente": "{{presenteIntegralId}}",
+      "quantidade": 1
+    }
+  ]
+}
+
+> {%
+  client.log("Selected integral gift");
+  client.log("Response: " + JSON.stringify(response.body));
+%}
+
+###
+
+# Step 6: Select 5 quotas of the FRACTIONAL gift (using grupo-teste-fracionado)
+POST {{baseUrl}}/finalizar-selecao
+Content-Type: application/json
+
+{
+  "chaveDeAcesso": "grupo-teste-fracionado",
+  "itens": [
+    {
+      "idPresente": "{{presenteFracionadoId}}",
+      "quantidade": 5
+    }
+  ]
+}
+
+> {%
+  client.log("Selected 5 quotas of fractional gift");
+  client.log("Response: " + JSON.stringify(response.body));
+%}
+
+###
+
+# Step 7: List ALL gifts as ADMIN - This should show who selected each gift
+# EXPECTED RESULTS:
+# 1. Integral gift should show:
+#    - status: "SELECIONADO"
+#    - selecao.chaveDeAcesso: "grupo-teste-integral"
+#    - selecao.quantidadeCotas: 1
+#
+# 2. Fractional gift should show:
+#    - status: "PARCIALMENTE_SELECIONADO"
+#    - selecao.chaveDeAcesso: "grupo-teste-fracionado"
+#    - selecao.quantidadeCotas: 5
+#    - cotasDisponiveis: 5
+#    - cotasSelecionadas: 5
+
+GET {{baseUrl}}/eventos/{{eventoId}}/presentes
+Authorization: Bearer {{authToken}}
+
+> {%
+  client.log("=== ADMIN VIEW - ALL GIFTS ===");
+
+  const gifts = response.body;
+
+  // Find our test gifts
+  const integralGift = gifts.find(g => g.id === client.global.get("presenteIntegralId"));
+  const fractionalGift = gifts.find(g => g.id === client.global.get("presenteFracionadoId"));
+
+  client.log("\n--- INTEGRAL GIFT ---");
+  if (integralGift) {
+    client.log("Name: " + integralGift.nome);
+    client.log("Status: " + integralGift.status);
+    client.log("Type: " + integralGift.tipo);
+    if (integralGift.selecao) {
+      client.log("✅ Selection Info Found:");
+      client.log("  - chaveDeAcesso: " + integralGift.selecao.chaveDeAcesso);
+      client.log("  - quantidadeCotas: " + integralGift.selecao.quantidadeCotas);
+      client.log("  - dataSelecao: " + integralGift.selecao.dataSelecao);
+
+      if (integralGift.selecao.chaveDeAcesso === "grupo-teste-integral") {
+        client.log("✅ PASS: Integral gift correctly shows selector!");
+      } else {
+        client.log("❌ FAIL: Selector mismatch!");
+      }
+    } else {
+      client.log("❌ FAIL: No selection info found for integral gift!");
+    }
+  } else {
+    client.log("❌ Gift not found in response");
+  }
+
+  client.log("\n--- FRACTIONAL GIFT ---");
+  if (fractionalGift) {
+    client.log("Name: " + fractionalGift.nome);
+    client.log("Status: " + fractionalGift.status);
+    client.log("Type: " + fractionalGift.tipo);
+    client.log("Quotas - Total: " + fractionalGift.cotasTotais + ", Available: " + fractionalGift.cotasDisponiveis + ", Selected: " + fractionalGift.cotasSelecionadas);
+
+    if (fractionalGift.selecao) {
+      client.log("✅ Selection Info Found:");
+      client.log("  - chaveDeAcesso: " + fractionalGift.selecao.chaveDeAcesso);
+      client.log("  - quantidadeCotas: " + fractionalGift.selecao.quantidadeCotas);
+      client.log("  - valorConfirmado: " + fractionalGift.selecao.valorConfirmado);
+      client.log("  - dataSelecao: " + fractionalGift.selecao.dataSelecao);
+
+      if (fractionalGift.selecao.chaveDeAcesso === "grupo-teste-fracionado" &&
+          fractionalGift.selecao.quantidadeCotas === 5) {
+        client.log("✅ PASS: Fractional gift correctly shows selector and quota count!");
+      } else {
+        client.log("❌ FAIL: Selector or quota count mismatch!");
+      }
+    } else {
+      client.log("❌ FAIL: No selection info found for fractional gift!");
+    }
+  } else {
+    client.log("❌ Gift not found in response");
+  }
+%}
+
+###
+
+# Step 8: View public gift list (should NOT show who selected)
+GET {{baseUrl}}/eventos/{{eventoId}}/presentes-publico
+
+> {%
+  client.log("=== PUBLIC VIEW ===");
+  const gifts = response.body;
+
+  const integralGift = gifts.find(g => g.id === client.global.get("presenteIntegralId"));
+  const fractionalGift = gifts.find(g => g.id === client.global.get("presenteFracionadoId"));
+
+  if (integralGift) {
+    client.log("Integral gift status: " + integralGift.status);
+    client.log("Has selecao field: " + (integralGift.selecao !== undefined));
+  }
+
+  if (fractionalGift) {
+    client.log("Fractional gift status: " + fractionalGift.status);
+    client.log("Quotas available: " + fractionalGift.cotasDisponiveis);
+    client.log("Has selecao field: " + (fractionalGift.selecao !== undefined));
+  }
+%}
+
+###
+
+# CLEANUP: Delete test gifts (optional - run if needed)
+# DELETE {{baseUrl}}/presentes/{{presenteIntegralId}}
+# Authorization: Bearer {{authToken}}
+
+###
+
+# DELETE {{baseUrl}}/presentes/{{presenteFracionadoId}}
+# Authorization: Bearer {{authToken}}

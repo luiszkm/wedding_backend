@@ -118,11 +118,22 @@ func (r *PostgresPresenteRepository) SaveWithCotas(ctx context.Context, presente
 
 func (r *PostgresPresenteRepository) Update(ctx context.Context, presente *domain.Presente) error {
 	sql := `
-		UPDATE presentes 
-		SET status = $1
-		WHERE id = $2;
+		UPDATE presentes
+		SET nome = $1, descricao = $2, eh_favorito = $3, foto_url = $4,
+		    categoria = $5, detalhes_tipo = $6, detalhes_link_loja = $7
+		WHERE id = $8;
 	`
-	_, err := r.db.Exec(ctx, sql, presente.Status(), presente.ID())
+	detalhes := presente.Detalhes()
+	_, err := r.db.Exec(ctx, sql,
+		presente.Nome(),
+		presente.Descricao(),
+		presente.EhFavorito(),
+		presente.FotoURL(),
+		presente.Categoria(),
+		detalhes.Tipo,
+		detalhes.LinkDaLoja,
+		presente.ID(),
+	)
 	if err != nil {
 		return fmt.Errorf("falha ao atualizar presente: %w", err)
 	}
@@ -245,7 +256,7 @@ func (r *PostgresPresenteRepository) ListarTodosPorEvento(ctx context.Context, e
 	// Presentes fracionados aparecem múltiplas vezes (uma para cada palavra mágica diferente)
 	sql := `
 		WITH presentes_integrais AS (
-			-- Presentes integrais: retorna com seleção se houver, ou sem seleção (null) se disponível
+			-- Presentes integrais: usa id_selecao diretamente da tabela presentes
 			SELECT
 				p.id, p.id_evento, p.nome, p.descricao, p.foto_url,
 				p.status, p.categoria, p.eh_favorito,
@@ -254,8 +265,7 @@ func (r *PostgresPresenteRepository) ListarTodosPorEvento(ctx context.Context, e
 				ps.data_da_selecao,
 				CASE WHEN ps.id IS NOT NULL THEN 1 ELSE 0 END as quantidade_cotas
 			FROM presentes p
-			LEFT JOIN cotas_de_presentes cp ON cp.id_presente = p.id AND cp.status != 'DISPONIVEL'
-			LEFT JOIN presentes_selecoes ps ON ps.id = cp.id_selecao
+			LEFT JOIN presentes_selecoes ps ON ps.id = p.id_selecao
 			LEFT JOIN convidados_grupos cg ON cg.id = ps.id_grupo_de_convidados
 			WHERE p.id_evento = $1 AND p.tipo = 'INTEGRAL'
 		),
@@ -497,4 +507,88 @@ func (r *PostgresPresenteRepository) loadCotas(ctx context.Context, presentesMap
 	}
 
 	return nil
+}
+
+func (r *PostgresPresenteRepository) FindByID(ctx context.Context, userID, presenteID uuid.UUID) (*domain.Presente, error) {
+	sql := `
+		SELECT
+			p.id, p.id_evento, p.nome, p.descricao, p.foto_url, p.status, p.categoria, p.eh_favorito,
+			p.detalhes_tipo, p.detalhes_link_loja, p.tipo, p.valor_total_presente
+		FROM presentes p
+		JOIN eventos e ON p.id_evento = e.id
+		WHERE p.id = $1 AND e.id_usuario = $2;
+	`
+
+	rows, err := r.db.Query(ctx, sql, presenteID, userID)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao buscar presente por ID: %w", err)
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, domain.ErrPresenteNaoEncontrado
+	}
+
+	presente, err := r.scanPresente(rows)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("erro durante leitura do presente: %w", err)
+	}
+
+	// Carregar cotas se for fracionado
+	if presente.EhFracionado() {
+		presentesMap := map[uuid.UUID]*domain.Presente{presente.ID(): presente}
+		err = r.loadCotas(ctx, presentesMap)
+		if err != nil {
+			return nil, err
+		}
+		presente = presentesMap[presente.ID()]
+	}
+
+	return presente, nil
+}
+
+func (r *PostgresPresenteRepository) Delete(ctx context.Context, userID, presenteID uuid.UUID) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("falha ao iniciar transação para delete: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Verificar se o presente pertence ao usuário
+	var exists bool
+	checkSQL := `
+		SELECT EXISTS(
+			SELECT 1 FROM presentes p
+			JOIN eventos e ON p.id_evento = e.id
+			WHERE p.id = $1 AND e.id_usuario = $2
+		)
+	`
+	if err := tx.QueryRow(ctx, checkSQL, presenteID, userID).Scan(&exists); err != nil {
+		return fmt.Errorf("falha ao verificar propriedade do presente: %w", err)
+	}
+
+	if !exists {
+		return domain.ErrPresenteNaoEncontrado
+	}
+
+	// Deletar cotas primeiro (FK constraint)
+	if _, err := tx.Exec(ctx, "DELETE FROM cotas_de_presentes WHERE id_presente = $1", presenteID); err != nil {
+		return fmt.Errorf("falha ao deletar cotas: %w", err)
+	}
+
+	// Deletar o presente
+	cmdTag, err := tx.Exec(ctx, "DELETE FROM presentes WHERE id = $1", presenteID)
+	if err != nil {
+		return fmt.Errorf("falha ao deletar presente: %w", err)
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return domain.ErrPresenteNaoEncontrado
+	}
+
+	return tx.Commit(ctx)
 }

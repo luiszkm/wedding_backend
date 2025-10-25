@@ -2,7 +2,69 @@
 
 ### Variáveis
 @baseUrl = http://localhost:8080/v1
-@email = admin@gmail.com
+@email = {
+  "grupos": [
+    {
+      "id": "36e6fb26-b1e5-4fa1-b944-9442f1dedbf5",
+      "chaveDeAcesso": "familia",
+      "totalConvidados": 2,
+      "convidadosConfirmados": 2,
+      "convidadosRecusados": 0,
+      "convidadosPendentes": 0,
+      "convidados": [
+        {
+          "id": "98d283df-8144-451b-b9da-0fdabdcd2f01",
+          "nome": "lorraine",
+          "statusRSVP": "CONFIRMADO"
+        },
+        {
+          "id": "ba1a0ee4-cc4d-4359-8554-a02239575440",
+          "nome": "daniel",
+          "statusRSVP": "CONFIRMADO"
+        }
+      ],
+      "dataConfirmacao": "2025-10-25T09:44:51-03:00"
+    },
+    {
+      "id": "c2ba754f-16e2-42ff-ad01-34fafdc888e8",
+      "chaveDeAcesso": "padrinhos",
+      "totalConvidados": 2,
+      "convidadosConfirmados": 1,
+      "convidadosRecusados": 1,
+      "convidadosPendentes": 0,
+      "convidados": [
+        {
+          "id": "ead62202-c861-4b32-b9cc-8782b5d2c554",
+          "nome": "Carlos Silva",
+          "statusRSVP": "CONFIRMADO"
+        },
+        {
+          "id": "254c9780-139a-4bd2-8522-649461d4e7be",
+          "nome": "Ana Santos",
+          "statusRSVP": "RECUSADO"
+        }
+      ],
+      "dataConfirmacao": "2025-10-25T09:43:31-03:00"
+    },
+    {
+      "id": "1f55aeac-afa7-4c17-b745-16fe98557e46",
+      "chaveDeAcesso": "festa",
+      "totalConvidados": 1,
+      "convidadosConfirmados": 1,
+      "convidadosRecusados": 0,
+      "convidadosPendentes": 0,
+      "convidados": [
+        {
+          "id": "99712939-bd8d-49f5-a901-3e94671ce1c1",
+          "nome": "luis",
+          "statusRSVP": "CONFIRMADO"
+        }
+      ],
+      "dataConfirmacao": "2025-10-09T20:15:53-03:00"
+    }
+  ],
+  "total": 3
+}
 @password = 123456
 
 ###

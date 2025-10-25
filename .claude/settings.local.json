@@ -21,7 +21,11 @@
       "Bash(timeout 5 docker-compose logs api --tail=100)",
       "Bash(timeout:*)",
       "Bash(docker exec:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(./server4.exe)",
+      "Bash(python -m json.tool:*)",
+      "Bash(powershell:*)",
+      "Bash(./server5.exe)"
     ],
     "deny": []
   }

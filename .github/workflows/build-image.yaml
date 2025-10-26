@@ -27,11 +27,11 @@ jobs:
         id: vars
         run: |
           if [[ "${GITHUB_REF_NAME}" == "hml" ]]; then
-            echo "TAGS=neuraptor/adminbackend:hml" >> $GITHUB_ENV
+            echo "TAGS=luiszkm/wedding_backend:hml" >> $GITHUB_ENV
           elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            echo "TAGS=neuraptor/adminbackend:latest,neuraptor/adminbackend:${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "TAGS=luiszkm/wedding_backend:latest,luiszkm/wedding_backend:${GITHUB_REF_NAME}" >> $GITHUB_ENV
           else
-            echo "TAGS=neuraptor/adminbackend:latest" >> $GITHUB_ENV
+            echo "TAGS=luiszkm/wedding_backend:latest" >> $GITHUB_ENV
           fi
 
       - name: Build and push
@@ -39,4 +39,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: neuraptor/adminbackend:latest
+          tags: luiszkm/wedding_backend:latest

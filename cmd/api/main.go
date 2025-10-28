@@ -166,6 +166,7 @@ func main() {
 		r.Get("/eventos/{idCasamento}/presentes-publico", presenteHandler.HandleListarPresentesPublicos)
 		r.Get("/eventos/{idEvento}/comunicados", communicationHandler.HandleListarComunicados)
 		r.Get("/eventos/{idEvento}/roteiro", itineraryHandler.HandleGetItinerary) // Rota pública do roteiro
+		r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)        // Rota pública para obter evento por slug
 		r.Post("/rsvps", guestHandler.HandleConfirmarPresenca)
 		r.Get("/planos", billingHandler.HandleListarPlanos)                       // Nova rota pública
 		r.Post("/webhooks/stripe", billingHandler.HandleStripeWebhook)            // <-- Rota do Webhook
@@ -213,7 +214,6 @@ func main() {
 			r.Post("/eventos", eventHandler.HandleCriarEvento)
 			r.Post("/assinaturas", billingHandler.HandleCriarAssinatura)
 
-			r.Get("/eventos/{urlSlug}", eventHandler.HandleObterEventoPorSlug)
 			r.Get("/eventos", eventHandler.HandleListarEventosPorUsuario)
 			r.Get("/eventos/id/{id}", eventHandler.HandleObterEventoPorID)
 
